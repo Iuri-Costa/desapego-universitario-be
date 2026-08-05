@@ -1,4 +1,4 @@
 package com.marketplace.desapegoUniversitario.dto;
 
-public record UsuarioResponseDTO() {
+public record UsuarioResponseDTO(String nome, String email, String token) {
 }
