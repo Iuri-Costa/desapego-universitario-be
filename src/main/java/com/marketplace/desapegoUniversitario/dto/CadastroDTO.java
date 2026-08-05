@@ -1,4 +1,5 @@
 package com.marketplace.desapegoUniversitario.dto;
 
-public class CadastroDTO {
+public record CadastroDTO(String nome, String email,String senha) {
+
 }
