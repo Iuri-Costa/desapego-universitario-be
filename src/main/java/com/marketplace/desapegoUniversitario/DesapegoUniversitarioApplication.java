@@ -12,5 +12,4 @@ public class DesapegoUniversitarioApplication {
 			.initializers(new DotenvApplicationInitializer())
 			.run(args);
 	}
-
 }
