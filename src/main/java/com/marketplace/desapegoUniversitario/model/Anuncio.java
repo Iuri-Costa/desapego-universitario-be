@@ -19,6 +19,7 @@ public class Anuncio {
     private String titulo;
     private BigDecimal preco;
     private String descricao;
+    private String imagem;
     @Enumerated(EnumType.STRING)
     private Categoria categoria;
 }
