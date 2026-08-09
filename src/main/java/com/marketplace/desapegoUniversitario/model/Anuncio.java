@@ -18,8 +18,12 @@ public class Anuncio {
     private UUID id;
     private String titulo;
     private BigDecimal preco;
+    @Column(columnDefinition = "TEXT")
     private String descricao;
+    @Column(columnDefinition = "TEXT")
     private String imagem;
     @Enumerated(EnumType.STRING)
     private Categoria categoria;
+    @Column(columnDefinition = "TEXT")
+    private String contato;
 }
