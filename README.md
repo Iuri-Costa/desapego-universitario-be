@@ -1,4 +1,6 @@
 # Desapego Universitário — Backend
+- **URL Base da API:** [https://desapego-universitario-be.onrender.com](https://desapego-universitario-be.onrender.com)
+- **Endpoint de Anúncios:** `/anuncios`
 
 Marketplace de economia circular para estudantes universitários, permitindo que anunciem itens (livros, eletrônicos, móveis, etc.) para venda ou doação dentro do campus. Feito como desafio técnico do processo seletivo do Laboratório Vortex (Unifor), etapa VORTEX 2026.2.
 
