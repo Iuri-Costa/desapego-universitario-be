@@ -44,7 +44,7 @@ rotas `/api/v1/admin/**` exigem `ROLE_ADMIN`.
 | Notificações | Firebase Cloud Messaging (opcional) + persistência de notificações |
 | Build | Maven Wrapper (`./mvnw`), Lombok |
 | Testes | JUnit 5, Mockito, MockMvc, H2 em modo PostgreSQL, Testcontainers |
-| Qualidade | JaCoCo (mínimo 80% em service e controller), SpotBugs, GitHub Actions |
+| Qualidade | JaCoCo (gate de 80% em `service`/`controller` no `test`/`verify`), SpotBugs (job separado no CI), GitHub Actions |
 | Deploy | Dockerfile multi-stage (usuário não root), Docker Compose, Render |
 
 ---
@@ -317,16 +317,18 @@ cold start. Para diagnóstico completo, use `/actuator/health`; para liveness,
 ### Testes
 
 ```bash
-./mvnw test                                      # suíte completa + relatório JaCoCo
-./mvnw verify                                    # build + testes + verificação de cobertura
-./mvnw -DskipTests compile spotbugs:check        # análise estática
+./mvnw test                                      # suíte + relatório e gate JaCoCo (80% em service/controller)
+./mvnw clean verify                              # build completo: limpa, compila, testa e aplica o gate JaCoCo
+./mvnw -DskipTests compile spotbugs:check        # análise estática (não roda no verify; job separado no CI)
 ```
 
 - Testes unitários com JUnit 5 e Mockito cobrem as regras dos services.
-- Testes de integração usam MockMvc com H2 em modo PostgreSQL; o teste com Testcontainers usa
-  PostgreSQL real e é ignorado automaticamente quando não há Docker disponível (executa no CI).
-- O JaCoCo falha o build se a cobertura de linha em `service` ou `controller` ficar abaixo de 80%.
-- Relatórios: `target/site/jacoco/index.html` e `target/site/spotbugs.html`.
+- Testes de integração usam MockMvc com H2 em modo PostgreSQL; com Docker disponível, o teste com
+  Testcontainers sobe PostgreSQL 16 real. Sem Docker ele roda no H2 e não é ignorado.
+- O JaCoCo falha `test` e `verify` se a cobertura de linha em `service` ou `controller` ficar abaixo de 80%.
+- O SpotBugs não está acoplado ao ciclo de vida do Maven: roda só no job `static-analysis` do CI (ou
+  manualmente via `spotbugs:check`), com `failOnError=true` e filtro em `spotbugs-exclude.xml`.
+- Relatórios: `target/site/jacoco/index.html` (cobertura) e `target/spotbugsXml.xml` (SpotBugs).
 
 ---
 
@@ -446,7 +448,7 @@ tratar pelo `codigo`, nunca pela mensagem.
 - **Integrações opcionais:** sem `S3_BUCKET` o storage é local; sem `FCM_CREDENTIALS` as notificações ficam apenas no banco; sem `MAIL_HOST` nenhum e-mail é enviado.
 - **Contrato publicado:** `/openapi.json` é a fonte para gerar clientes Kotlin; mudanças incompatíveis exigem nova versão de URL, conforme `docs/VERSIONAMENTO.md`.
 - **Observabilidade:** correlation id gerado/propagado por requisição no header `X-Correlation-Id` e no MDC; logs no formato estruturado `logstash`; Actuator expõe health/info/metrics.
-- **Deploy e CI:** imagem multi-stage com usuário não root e healthcheck, Compose com PostgreSQL, e pipeline GitHub Actions com build, testes, JaCoCo, SpotBugs e build/push da imagem.
+- **Deploy e CI:** imagem multi-stage com usuário não root e healthcheck, Compose com PostgreSQL, e pipeline GitHub Actions com build, testes e gate JaCoCo, relatórios de teste/cobertura publicados como artefatos, SpotBugs em job separado e build/push da imagem.
 - **Cold start:** `/healthz` responde sem consultar dependências, separando "processo vivo" de "dependências prontas" (`/actuator/health`).
 
 ---
