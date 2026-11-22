@@ -4,6 +4,7 @@ import com.marketplace.desapegoUniversitario.dto.CadastroDTO;
 import com.marketplace.desapegoUniversitario.dto.LoginDTO;
 import com.marketplace.desapegoUniversitario.dto.UsuarioResponseDTO;
 import com.marketplace.desapegoUniversitario.service.UsuarioService;
+import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -20,12 +21,12 @@ public class UsuarioController {
     }
 
     @PostMapping("/cadastro")
-    public UsuarioResponseDTO cadastrar(@RequestBody CadastroDTO dto) {
+    public UsuarioResponseDTO cadastrar(@Valid @RequestBody CadastroDTO dto) {
         return usuarioService.cadastrar(dto);
     }
 
     @PostMapping("/login")
-    public UsuarioResponseDTO login(@RequestBody LoginDTO dto) {
+    public UsuarioResponseDTO login(@Valid @RequestBody LoginDTO dto) {
         return usuarioService.login(dto);
     }
 }

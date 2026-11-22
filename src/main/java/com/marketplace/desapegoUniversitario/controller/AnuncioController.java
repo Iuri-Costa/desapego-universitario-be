@@ -4,6 +4,7 @@ import com.marketplace.desapegoUniversitario.domain.Categoria;
 import com.marketplace.desapegoUniversitario.dto.AnuncioRequestDTO;
 import com.marketplace.desapegoUniversitario.dto.AnuncioResponseDTO;
 import com.marketplace.desapegoUniversitario.service.AnuncioService;
+import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -26,7 +27,7 @@ public class AnuncioController {
     }
 
     @PostMapping
-    public AnuncioResponseDTO criar(@RequestBody AnuncioRequestDTO dto) {
+    public AnuncioResponseDTO criar(@Valid @RequestBody AnuncioRequestDTO dto) {
         return anuncioService.criar(dto);
     }
 
