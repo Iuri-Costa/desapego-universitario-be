@@ -109,6 +109,15 @@ public class AnuncioController {
         return anuncioService.listarImagens(id, authentication.getName());
     }
 
+    @PatchMapping("/{id}/imagens/{imagemId}/capa")
+    @Operation(summary = "Define a imagem de capa do anúncio",
+            description = "Somente o dono pode escolher a capa; uma única imagem fica com capa=true.")
+    public List<ImagemResponseDTO> definirCapa(@PathVariable UUID id,
+                                               @PathVariable UUID imagemId,
+                                               Authentication authentication) {
+        return anuncioService.definirCapa(id, imagemId, authentication.getName());
+    }
+
     @DeleteMapping("/{id}/imagens/{imagemId}")
     public ResponseEntity<Void> removerImagem(@PathVariable UUID id,
                                                @PathVariable UUID imagemId,

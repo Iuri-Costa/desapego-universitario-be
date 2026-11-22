@@ -39,7 +39,6 @@ public final class AnuncioMapper {
         anuncio.setTitulo(dto.titulo());
         anuncio.setPreco(dto.preco());
         anuncio.setDescricao(dto.descricao());
-        anuncio.setImagem(dto.imagem());
         anuncio.setCategoria(dto.categoria());
         anuncio.setContato(dto.contato());
         anuncio.setTipo(dto.tipo() == null ? TipoAnuncio.VENDA : dto.tipo());
@@ -52,7 +51,6 @@ public final class AnuncioMapper {
         aplicarSePresente(dto.titulo(), anuncio::setTitulo);
         aplicarSePresente(dto.preco(), anuncio::setPreco);
         aplicarSePresente(dto.descricao(), anuncio::setDescricao);
-        aplicarSePresente(dto.imagem(), anuncio::setImagem);
         aplicarSePresente(dto.categoria(), anuncio::setCategoria);
         aplicarSePresente(dto.contato(), anuncio::setContato);
         aplicarSePresente(dto.tipo(), anuncio::setTipo);
@@ -62,13 +60,14 @@ public final class AnuncioMapper {
                 valor -> anuncio.setLocalRetirada(textoOuPadrao(valor, LOCAL_PADRAO)));
     }
 
-    public static AnuncioResponseDTO toResponse(Anuncio anuncio, List<ImagemResponseDTO> imagens) {
+    public static AnuncioResponseDTO toResponse(Anuncio anuncio, List<ImagemResponseDTO> imagens,
+                                                 String imagemCapa) {
         return new AnuncioResponseDTO(
                 anuncio.getId(),
                 anuncio.getTitulo(),
                 anuncio.getPreco(),
                 anuncio.getDescricao(),
-                anuncio.getImagem(),
+                imagemCapa,
                 anuncio.getCategoria(),
                 anuncio.getContato(),
                 anuncio.isModerado(),

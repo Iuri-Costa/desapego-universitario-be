@@ -42,4 +42,10 @@ public class AnuncioImagem {
 
     @Column(nullable = false)
     private Instant criadoEm;
+
+    @Column(nullable = false)
+    private Integer ordem;
+
+    @Column(nullable = false)
+    private boolean capa;
 }

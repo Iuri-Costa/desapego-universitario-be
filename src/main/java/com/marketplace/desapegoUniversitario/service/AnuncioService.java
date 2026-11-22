@@ -206,6 +206,12 @@ public class AnuncioService {
             conteudos.add(conteudo);
         }
 
+        List<AnuncioImagem> anteriores = imagensDeEntidades(id);
+        int proximaOrdem = anteriores.stream()
+                .mapToInt(imagem -> imagem.getOrdem() == null ? 0 : imagem.getOrdem())
+                .max().orElse(-1) + 1;
+        boolean jaTemCapa = anteriores.stream().anyMatch(AnuncioImagem::isCapa);
+
         List<String> chavesSalvas = new ArrayList<>();
         try {
             List<AnuncioImagem> imagens = new ArrayList<>();
@@ -216,12 +222,12 @@ public class AnuncioService {
                 String url = armazenamento.salvar(chave, conteudos.get(i), tipos.get(i));
                 chavesSalvas.add(chave);
                 AnuncioImagem imagem = new AnuncioImagem(null, anuncio, chave, url,
-                        tipos.get(i), Instant.now());
+                        tipos.get(i), Instant.now(), proximaOrdem + i, !jaTemCapa && i == 0);
                 imagens.add(imagemRepository.save(imagem));
             }
-            return imagens.stream()
-                    .map(imagem -> new ImagemResponseDTO(imagem.getId(), imagem.getUrl()))
-                    .toList();
+            List<ImagemResponseDTO> resposta = imagens.stream().map(this::paraDTO).toList();
+            sincronizarImagemLegada(anuncio, resposta);
+            return resposta;
         } catch (RuntimeException e) {
             chavesSalvas.forEach(armazenamento::remover);
             throw e;
@@ -236,18 +242,72 @@ public class AnuncioService {
         garantirDono(anuncio, buscarUsuario(emailUsuario));
         AnuncioImagem imagem = imagemRepository.findByIdAndAnuncioId(imagemId, anuncioId)
                 .orElseThrow(() -> new RecursoNaoEncontradoException("Imagem não encontrada"));
+
         imagemRepository.delete(imagem);
         armazenamento.remover(imagem.getChave());
+
+        List<AnuncioImagem> restantes = imagensDeEntidades(anuncioId).stream()
+                .filter(atual -> !atual.getId().equals(imagemId))
+                .toList();
+        boolean temCapa = restantes.stream().anyMatch(AnuncioImagem::isCapa);
+        for (int i = 0; i < restantes.size(); i++) {
+            AnuncioImagem atual = restantes.get(i);
+            atual.setOrdem(i);
+            if (i == 0 && !temCapa) {
+                atual.setCapa(true);
+                temCapa = true;
+            }
+        }
+        imagemRepository.saveAll(restantes);
+        sincronizarImagemLegada(anuncio, restantes.stream().map(this::paraDTO).toList());
+    }
+
+    @CacheEvict(value = {"anuncios-busca", "anuncios-detalhe", "anuncios-categoria"},
+            allEntries = true)
+    @Transactional
+    public List<ImagemResponseDTO> definirCapa(UUID anuncioId, UUID imagemId, String emailUsuario) {
+        Anuncio anuncio = buscarAnuncio(anuncioId);
+        garantirDono(anuncio, buscarUsuario(emailUsuario));
+        imagemRepository.findByIdAndAnuncioId(imagemId, anuncioId)
+                .orElseThrow(() -> new RecursoNaoEncontradoException("Imagem não encontrada"));
+
+        List<AnuncioImagem> imagens = imagensDeEntidades(anuncioId);
+        imagens.forEach(imagem -> imagem.setCapa(imagem.getId().equals(imagemId)));
+        imagemRepository.saveAll(imagens);
+
+        List<ImagemResponseDTO> resposta = imagens.stream().map(this::paraDTO).toList();
+        sincronizarImagemLegada(anuncio, resposta);
+        return resposta;
+    }
+
+    private List<AnuncioImagem> imagensDeEntidades(UUID anuncioId) {
+        return imagemRepository.findByAnuncioIdOrderByOrdemAscCriadoEmAscIdAsc(anuncioId);
+    }
+
+    private ImagemResponseDTO paraDTO(AnuncioImagem imagem) {
+        return new ImagemResponseDTO(imagem.getId(), imagem.getUrl(), imagem.getOrdem(), imagem.isCapa());
+    }
+
+    private void sincronizarImagemLegada(Anuncio anuncio, List<ImagemResponseDTO> imagens) {
+        anuncio.setImagem(imagens.stream()
+                .filter(ImagemResponseDTO::capa)
+                .map(ImagemResponseDTO::url)
+                .findFirst()
+                .orElse(null));
     }
 
     private List<ImagemResponseDTO> imagensDe(UUID anuncioId) {
-        return imagemRepository.findByAnuncioIdOrderByCriadoEmAsc(anuncioId).stream()
-                .map(imagem -> new ImagemResponseDTO(imagem.getId(), imagem.getUrl()))
-                .toList();
+        return imagensDeEntidades(anuncioId).stream().map(this::paraDTO).toList();
     }
 
     public AnuncioResponseDTO paraResponse(Anuncio anuncio) {
-        return AnuncioMapper.toResponse(anuncio, imagensDe(anuncio.getId()));
+        List<ImagemResponseDTO> imagens = imagensDe(anuncio.getId());
+        String imagemCapa = imagens.stream()
+                .filter(ImagemResponseDTO::capa)
+                .map(ImagemResponseDTO::url)
+                .findFirst()
+                .orElse(null);
+        return AnuncioMapper.toResponse(anuncio, imagens, imagemCapa);
     }
 
     private String tipoConteudo(String informado) {

@@ -183,9 +183,10 @@ Envelope retornado por buscas paginadas:
 | DELETE | `/anuncios/{id}` | Bearer, dono | `curl -X DELETE "$BASE/anuncios/$ID" -H "$AUTH"` | `204`; soft delete (`status=REMOVIDO`) |
 | POST | `/anuncios/{id}/imagens` | Bearer, dono | `curl -X POST "$BASE/anuncios/$ID/imagens" -H "$AUTH" -F 'imagens=@foto1.jpg' -F 'imagens=@foto2.png'` | `200` `[{"id":"...","url":"/uploads/anuncios/..."}]` |
 | GET | `/anuncios/{id}/imagens` | Bearer, dono | `curl "$BASE/anuncios/$ID/imagens" -H "$AUTH"` | `200` lista de `ImagemResponseDTO` |
+| PATCH | `/anuncios/{id}/imagens/{imagemId}/capa` | Bearer, dono | `curl -X PATCH "$BASE/anuncios/$ID/imagens/22222222-2222-2222-2222-222222222222/capa" -H "$AUTH"` | `200` lista ordenada, com uma única imagem `capa=true` |
 | DELETE | `/anuncios/{id}/imagens/{imagemId}` | Bearer, dono | `curl -X DELETE "$BASE/anuncios/$ID/imagens/22222222-2222-2222-2222-222222222222" -H "$AUTH"` | `204` |
 
-Defaults na criação: `tipo=VENDA`, `condicao=USADO`, `campus=PRINCIPAL`, `localRetirada="A combinar"`. `PUT` e `PATCH` só aceitam anúncios com `status=ATIVO`; reservado, vendido, doado ou removido retorna `409` (`codigo=CONFLITO`). Imagens aceitas: JPEG/PNG/WebP, até `STORAGE_MAX_IMAGENS` (padrão 5) por anúncio e `STORAGE_MAX_TAMANHO` (padrão 2MB) por arquivo; magic bytes são validados. O campo legado `imagem` não é sincronizado com o upload.
+Defaults na criação: `tipo=VENDA`, `condicao=USADO`, `campus=PRINCIPAL`, `localRetirada="A combinar"`. `PUT` e `PATCH` só aceitam anúncios com `status=ATIVO`; reservado, vendido, doado ou removido retorna `409` (`codigo=CONFLITO`). Imagens aceitas: JPEG/PNG/WebP, até `STORAGE_MAX_IMAGENS` (padrão 5) por anúncio e `STORAGE_MAX_TAMANHO` (padrão 2MB) por arquivo; magic bytes são validados. A listagem é ordenada por `ordem` crescente (desempate `criadoEm`, `id`); a primeira imagem enviada vira capa, e `PATCH .../capa` troca a capa. Ao remover a capa, a próxima é promovida e a ordem é compactada. O campo legado `imagem` sempre espelha a URL da capa em leitura e gravação; valor enviado no payload é ignorado.
 
 `AnuncioResponseDTO` (resumo):
 
@@ -206,7 +207,7 @@ Defaults na criação: `tipo=VENDA`, `condicao=USADO`, `campus=PRINCIPAL`, `loca
   "localRetirada": "A combinar",
   "criadoEm": "2026-11-22T16:00:00Z",
   "atualizadoEm": "2026-11-22T16:00:00Z",
-  "imagens": []
+  "imagens": [{"id": "22222222-2222-2222-2222-222222222222", "url": "/uploads/anuncios/foto.jpg", "ordem": 0, "capa": true}]
 }
 ```
 

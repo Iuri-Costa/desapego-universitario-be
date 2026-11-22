@@ -8,7 +8,7 @@ import java.util.Optional;
 import java.util.UUID;
 
 public interface AnuncioImagemRepository extends JpaRepository<AnuncioImagem, UUID> {
-    List<AnuncioImagem> findByAnuncioIdOrderByCriadoEmAsc(UUID anuncioId);
+    List<AnuncioImagem> findByAnuncioIdOrderByOrdemAscCriadoEmAscIdAsc(UUID anuncioId);
 
     Optional<AnuncioImagem> findByIdAndAnuncioId(UUID id, UUID anuncioId);
 

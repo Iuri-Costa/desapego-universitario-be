@@ -37,7 +37,7 @@ rotas `/api/v1/admin/**` exigem `ROLE_ADMIN`.
 | Linguagem / runtime | Java 21 |
 | Framework | Spring Boot 4.1.0 (Web MVC, Validation, Data JPA, Security, Mail, Cache, Actuator) |
 | Segurança | Spring Security + JWT JJWT 0.12.6, BCrypt, CORS, rate limit por IP |
-| Persistência | PostgreSQL 16, Hibernate, Spring Data JPA, Flyway (V1–V14) |
+| Persistência | PostgreSQL 16, Hibernate, Spring Data JPA, Flyway (V1–V16) |
 | Cache | Caffeine (máx. 500 entradas, TTL de 30 s) |
 | Documentação | springdoc-openapi 3.2.0 (Swagger UI + `/openapi.json`) |
 | Armazenamento | AWS SDK S3 2.31.78 (S3 ou compatível) ou disco local em desenvolvimento |
@@ -175,6 +175,8 @@ erDiagram
         string url
         string tipo_conteudo
         Instant criado_em
+        int ordem
+        boolean capa
     }
     REFRESH_TOKEN {
         UUID id PK
@@ -260,9 +262,10 @@ e serializadas como ISO 8601 UTC (`...Z`); enums usam `@Enumerated(EnumType.STRI
 `UPPER_SNAKE_CASE` com `CHECK` constraints; a remoção de anúncio é lógica (`removido_em`).
 
 As migrações Flyway (`src/main/resources/db/migration`) evoluíram de `V1__baseline` até
-`V14__indices_buscas`. Todas são aditivas: `V13` normaliza enums e adiciona constraints sem
+`V16__imagens_ordem_capa`. Todas são aditivas: `V13` normaliza enums e adiciona constraints sem
 recriar tabelas; `V14` cria índices para listagem por `removido_em/criado_em`, categoria,
-preço, status e usuário. O Hibernate roda com `ddl-auto=validate` e o Flyway com
+preço, status e usuário; `V16` adiciona `ordem`/`capa` às imagens e espelha a capa no campo
+legado `anuncio.imagem`. O Hibernate roda com `ddl-auto=validate` e o Flyway com
 `clean-disabled=true`.
 
 ---
@@ -394,7 +397,8 @@ Documentação completa, payloads e códigos de resposta em [docs/API.md](docs/A
 | PUT / PATCH | `/api/v1/anuncios/{id}` | Bearer; somente o dono e anúncio `ATIVO` (senão 409) |
 | DELETE | `/api/v1/anuncios/{id}` | Bearer; somente o dono (soft delete) |
 | POST | `/api/v1/anuncios/{id}/imagens` | Bearer; `multipart/form-data`, campo `imagens`, até 5 imagens de 2 MB |
-| GET / DELETE | `/api/v1/anuncios/{id}/imagens[/{imagemId}]` | Bearer; somente o dono |
+| GET / DELETE | `/api/v1/anuncios/{id}/imagens[/{imagemId}]` | Bearer; somente o dono; ordem crescente |
+| PATCH | `/api/v1/anuncios/{id}/imagens/{imagemId}/capa` | Bearer; somente o dono; `imagem` do anúncio espelha a capa |
 
 ### Interação e perfil
 
