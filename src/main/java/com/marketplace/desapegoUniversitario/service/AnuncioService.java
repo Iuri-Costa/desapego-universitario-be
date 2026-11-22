@@ -277,7 +277,7 @@ public class AnuncioService {
         salvar(anuncio);
     }
 
-    private Anuncio salvar(Anuncio anuncio) {
+    public Anuncio salvar(Anuncio anuncio) {
         anuncio.setAtualizadoEm(Instant.now());
         return anuncioRepository.save(anuncio);
     }
