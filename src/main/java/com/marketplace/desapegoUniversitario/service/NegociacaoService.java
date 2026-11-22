@@ -71,8 +71,7 @@ public class NegociacaoService {
         }
 
         reservaRepository.save(new Reserva(null, anuncio, comprador, Instant.now(), null, null));
-        anuncio.setStatus(StatusAnuncio.RESERVADO);
-        AnuncioResponseDTO resposta = anuncioService.paraResponse(salvar(anuncio));
+        AnuncioResponseDTO resposta = anuncioService.alterarStatus(anuncio, StatusAnuncio.RESERVADO);
         notificacaoService.notificar(vendedor.getId(), "Anúncio reservado",
                 "Seu anúncio '" + anuncio.getTitulo() + "' foi reservado", "RESERVA", anuncioId);
         return resposta;
@@ -94,8 +93,7 @@ public class NegociacaoService {
 
         reserva.setCanceladaEm(Instant.now());
         reservaRepository.save(reserva);
-        anuncio.setStatus(StatusAnuncio.ATIVO);
-        return anuncioService.paraResponse(salvar(anuncio));
+        return anuncioService.alterarStatus(anuncio, StatusAnuncio.ATIVO);
     }
 
     @Transactional
@@ -113,9 +111,9 @@ public class NegociacaoService {
 
         reserva.setConcluidaEm(Instant.now());
         reservaRepository.save(reserva);
-        anuncio.setStatus(anuncio.getTipo() == TipoAnuncio.DOACAO
-                ? StatusAnuncio.DOADO : StatusAnuncio.VENDIDO);
-        AnuncioResponseDTO resposta = anuncioService.paraResponse(salvar(anuncio));
+        StatusAnuncio statusFinal = anuncio.getTipo() == TipoAnuncio.DOACAO
+                ? StatusAnuncio.DOADO : StatusAnuncio.VENDIDO;
+        AnuncioResponseDTO resposta = anuncioService.alterarStatus(anuncio, statusFinal);
         notificacaoService.notificar(reserva.getComprador().getId(), "Negociação concluída",
                 "A negociação do anúncio '" + anuncio.getTitulo() + "' foi concluída",
                 "CONCLUSAO", anuncioId);
@@ -172,10 +170,6 @@ public class NegociacaoService {
                 avaliacao.getComentario(),
                 avaliacao.getCriadoEm()
         );
-    }
-
-    private Anuncio salvar(Anuncio anuncio) {
-        return anuncioService.salvar(anuncio);
     }
 
     private Anuncio buscarAnuncio(UUID id) {

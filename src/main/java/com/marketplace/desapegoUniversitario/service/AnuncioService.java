@@ -297,6 +297,14 @@ public class AnuncioService {
         salvar(anuncio);
     }
 
+    @CacheEvict(value = {"anuncios-busca", "anuncios-detalhe", "anuncios-categoria"},
+            allEntries = true)
+    @Transactional
+    public AnuncioResponseDTO alterarStatus(Anuncio anuncio, StatusAnuncio status) {
+        anuncio.setStatus(status);
+        return paraResponse(salvar(anuncio));
+    }
+
     public Anuncio salvar(Anuncio anuncio) {
         anuncio.setAtualizadoEm(Instant.now());
         return anuncioRepository.save(anuncio);

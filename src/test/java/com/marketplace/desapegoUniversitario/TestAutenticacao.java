@@ -84,12 +84,16 @@ public final class TestAutenticacao {
     }
 
     public static UUID criarAnuncio(MockMvc mockMvc, String token) throws Exception {
+        return criarAnuncio(mockMvc, token, "Livro");
+    }
+
+    public static UUID criarAnuncio(MockMvc mockMvc, String token, String titulo) throws Exception {
         String corpo = mockMvc.perform(post("/api/v1/anuncios")
                         .header("Authorization", "Bearer " + token)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {"titulo":"Livro","preco":10.00,"categoria":"LIVROS"}
-                                """))
+                                {"titulo":"%s","preco":10.00,"categoria":"LIVROS"}
+                                """.formatted(titulo)))
                 .andExpect(status().isOk())
                 .andReturn().getResponse().getContentAsString();
         return UUID.fromString(JsonPath.read(corpo, "$.id"));
