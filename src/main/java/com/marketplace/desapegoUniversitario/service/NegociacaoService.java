@@ -4,12 +4,15 @@ import com.marketplace.desapegoUniversitario.domain.Anuncio;
 import com.marketplace.desapegoUniversitario.domain.Avaliacao;
 import com.marketplace.desapegoUniversitario.domain.Reserva;
 import com.marketplace.desapegoUniversitario.domain.StatusAnuncio;
+import com.marketplace.desapegoUniversitario.domain.StatusReserva;
 import com.marketplace.desapegoUniversitario.domain.TipoAnuncio;
 import com.marketplace.desapegoUniversitario.domain.Usuario;
 import com.marketplace.desapegoUniversitario.dto.AnuncioResponseDTO;
 import com.marketplace.desapegoUniversitario.dto.AvaliacaoRequestDTO;
 import com.marketplace.desapegoUniversitario.dto.AvaliacaoResponseDTO;
 import com.marketplace.desapegoUniversitario.dto.AvaliacoesResponseDTO;
+import com.marketplace.desapegoUniversitario.dto.PaginadoDTO;
+import com.marketplace.desapegoUniversitario.dto.ReservaResponseDTO;
 import com.marketplace.desapegoUniversitario.exception.ConflitoException;
 import com.marketplace.desapegoUniversitario.exception.ParametroInvalidoException;
 import com.marketplace.desapegoUniversitario.exception.RecursoNaoEncontradoException;
@@ -17,10 +20,15 @@ import com.marketplace.desapegoUniversitario.repository.AnuncioRepository;
 import com.marketplace.desapegoUniversitario.repository.AvaliacaoRepository;
 import com.marketplace.desapegoUniversitario.repository.ReservaRepository;
 import com.marketplace.desapegoUniversitario.repository.UsuarioRepository;
+import com.marketplace.desapegoUniversitario.util.Paginas;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
@@ -34,23 +42,27 @@ public class NegociacaoService {
     private final UsuarioRepository usuarioRepository;
     private final AnuncioService anuncioService;
     private final NotificacaoService notificacaoService;
+    private final Duration reservaTtl;
 
     public NegociacaoService(ReservaRepository reservaRepository,
                              AvaliacaoRepository avaliacaoRepository,
                              AnuncioRepository anuncioRepository,
                              UsuarioRepository usuarioRepository,
                              AnuncioService anuncioService,
-                             NotificacaoService notificacaoService) {
+                             NotificacaoService notificacaoService,
+                             @Value("${app.reserva.ttl}") Duration reservaTtl) {
         this.reservaRepository = reservaRepository;
         this.avaliacaoRepository = avaliacaoRepository;
         this.anuncioRepository = anuncioRepository;
         this.usuarioRepository = usuarioRepository;
         this.anuncioService = anuncioService;
         this.notificacaoService = notificacaoService;
+        this.reservaTtl = reservaTtl;
     }
 
     @Transactional
     public AnuncioResponseDTO reservar(UUID anuncioId, String emailUsuario) {
+        expirarVencidas();
         Anuncio anuncio = buscarAnuncio(anuncioId);
         Usuario comprador = buscarUsuario(emailUsuario);
         Usuario vendedor = exigirVendedor(anuncio);
@@ -59,7 +71,7 @@ public class NegociacaoService {
             throw new ParametroInvalidoException("O vendedor não pode reservar o próprio anúncio");
         }
         var existente = reservaRepository
-                .findByAnuncioIdAndCanceladaEmIsNullAndConcluidaEmIsNull(anuncioId);
+                .findByAnuncioIdAndCanceladaEmIsNullAndConcluidaEmIsNullAndExpiradaEmIsNull(anuncioId);
         if (existente.isPresent()) {
             if (existente.get().getComprador().getId().equals(comprador.getId())) {
                 return anuncioService.paraResponse(anuncio);
@@ -70,7 +82,8 @@ public class NegociacaoService {
             throw new ConflitoException("Este anúncio não está disponível para reserva");
         }
 
-        reservaRepository.save(new Reserva(null, anuncio, comprador, Instant.now(), null, null));
+        reservaRepository.save(new Reserva(
+                null, anuncio, comprador, Instant.now(), null, null, null));
         AnuncioResponseDTO resposta = anuncioService.alterarStatus(anuncio, StatusAnuncio.RESERVADO);
         notificacaoService.notificar(vendedor.getId(), "Anúncio reservado",
                 "Seu anúncio '" + anuncio.getTitulo() + "' foi reservado", "RESERVA", anuncioId);
@@ -79,18 +92,14 @@ public class NegociacaoService {
 
     @Transactional
     public AnuncioResponseDTO cancelarReserva(UUID anuncioId, String emailUsuario) {
+        expirarVencidas();
         Anuncio anuncio = buscarAnuncio(anuncioId);
         Usuario usuario = buscarUsuario(emailUsuario);
         Reserva reserva = reservaRepository
-                .findByAnuncioIdAndCanceladaEmIsNullAndConcluidaEmIsNull(anuncioId)
+                .findByAnuncioIdAndCanceladaEmIsNullAndConcluidaEmIsNullAndExpiradaEmIsNull(anuncioId)
                 .orElseThrow(() -> new ConflitoException("Não há reserva ativa neste anúncio"));
 
-        boolean participante = reserva.getComprador().getId().equals(usuario.getId())
-                || (anuncio.getUsuario() != null && anuncio.getUsuario().getId().equals(usuario.getId()));
-        if (!participante) {
-            throw new AccessDeniedException("Somente o comprador ou o vendedor pode cancelar a reserva");
-        }
-
+        exigirParticipante(anuncio, reserva, usuario);
         reserva.setCanceladaEm(Instant.now());
         reservaRepository.save(reserva);
         return anuncioService.alterarStatus(anuncio, StatusAnuncio.ATIVO);
@@ -98,6 +107,7 @@ public class NegociacaoService {
 
     @Transactional
     public AnuncioResponseDTO concluir(UUID anuncioId, String emailUsuario) {
+        expirarVencidas();
         Anuncio anuncio = buscarAnuncio(anuncioId);
         Usuario usuario = buscarUsuario(emailUsuario);
         Usuario vendedor = exigirVendedor(anuncio);
@@ -106,7 +116,7 @@ public class NegociacaoService {
         }
 
         Reserva reserva = reservaRepository
-                .findByAnuncioIdAndCanceladaEmIsNullAndConcluidaEmIsNull(anuncioId)
+                .findByAnuncioIdAndCanceladaEmIsNullAndConcluidaEmIsNullAndExpiradaEmIsNull(anuncioId)
                 .orElseThrow(() -> new ConflitoException("Não há reserva ativa para concluir"));
 
         reserva.setConcluidaEm(Instant.now());
@@ -118,6 +128,42 @@ public class NegociacaoService {
                 "A negociação do anúncio '" + anuncio.getTitulo() + "' foi concluída",
                 "CONCLUSAO", anuncioId);
         return resposta;
+    }
+
+    @Transactional
+    public ReservaResponseDTO consultarReserva(UUID anuncioId, String emailUsuario) {
+        expirarVencidas();
+        Anuncio anuncio = buscarAnuncio(anuncioId);
+        Usuario usuario = buscarUsuario(emailUsuario);
+        Reserva reserva = reservaRepository.findTopByAnuncioIdOrderByCriadoEmDesc(anuncioId)
+                .orElseThrow(() -> new RecursoNaoEncontradoException(
+                        "Este anúncio não possui reserva"));
+        exigirParticipante(anuncio, reserva, usuario);
+        return paraResponse(reserva);
+    }
+
+    @Transactional
+    public PaginadoDTO<ReservaResponseDTO> listarReservas(String emailUsuario, int page, int size) {
+        expirarVencidas();
+        Usuario usuario = buscarUsuario(emailUsuario);
+        Pageable paginacao = Paginas.de(page, size);
+        Page<Reserva> reservas = reservaRepository.findHistorico(usuario.getId(), paginacao);
+        return PaginadoDTO.de(reservas, this::paraResponse);
+    }
+
+    @Transactional
+    public void expirarVencidas() {
+        Instant agora = Instant.now();
+        Instant limite = agora.minus(reservaTtl);
+        for (Reserva reserva : reservaRepository
+                .findByCanceladaEmIsNullAndConcluidaEmIsNullAndExpiradaEmIsNullAndCriadoEmBefore(limite)) {
+            reserva.setExpiradaEm(agora);
+            reservaRepository.save(reserva);
+            Anuncio anuncio = reserva.getAnuncio();
+            if (anuncio.getStatus() == StatusAnuncio.RESERVADO) {
+                anuncioService.alterarStatus(anuncio, StatusAnuncio.ATIVO);
+            }
+        }
     }
 
     @Transactional
@@ -158,6 +204,45 @@ public class NegociacaoService {
                 avaliacaoRepository.mediaPorVendedor(vendedorId),
                 avaliacaoRepository.countByVendedorId(vendedorId),
                 avaliacoes);
+    }
+
+    private void exigirParticipante(Anuncio anuncio, Reserva reserva, Usuario usuario) {
+        boolean participante = reserva.getComprador().getId().equals(usuario.getId())
+                || (anuncio.getUsuario() != null && anuncio.getUsuario().getId().equals(usuario.getId()));
+        if (!participante) {
+            throw new AccessDeniedException("Somente o comprador ou o vendedor desta reserva podem consultá-la");
+        }
+    }
+
+    private ReservaResponseDTO paraResponse(Reserva reserva) {
+        Anuncio anuncio = reserva.getAnuncio();
+        Usuario vendedor = anuncio.getUsuario();
+        return new ReservaResponseDTO(
+                reserva.getId(),
+                anuncio.getId(),
+                anuncio.getTitulo(),
+                anuncio.getStatus(),
+                reserva.getComprador().getId(),
+                reserva.getComprador().getNome(),
+                vendedor == null ? null : vendedor.getId(),
+                statusDaReserva(reserva),
+                reserva.getCriadoEm(),
+                reserva.getCanceladaEm(),
+                reserva.getConcluidaEm(),
+                reserva.getExpiradaEm());
+    }
+
+    private StatusReserva statusDaReserva(Reserva reserva) {
+        if (reserva.getExpiradaEm() != null) {
+            return StatusReserva.EXPIRADA;
+        }
+        if (reserva.getConcluidaEm() != null) {
+            return StatusReserva.CONCLUIDA;
+        }
+        if (reserva.getCanceladaEm() != null) {
+            return StatusReserva.CANCELADA;
+        }
+        return StatusReserva.ATIVA;
     }
 
     private AvaliacaoResponseDTO paraResponse(Avaliacao avaliacao) {

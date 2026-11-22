@@ -5,6 +5,8 @@ import com.marketplace.desapegoUniversitario.dto.AnuncioResponseDTO;
 import com.marketplace.desapegoUniversitario.dto.AvaliacaoRequestDTO;
 import com.marketplace.desapegoUniversitario.dto.AvaliacaoResponseDTO;
 import com.marketplace.desapegoUniversitario.dto.AvaliacoesResponseDTO;
+import com.marketplace.desapegoUniversitario.dto.PaginadoDTO;
+import com.marketplace.desapegoUniversitario.dto.ReservaResponseDTO;
 import com.marketplace.desapegoUniversitario.service.NegociacaoService;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -15,6 +17,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.UUID;
@@ -35,9 +38,22 @@ public class NegociacaoController {
         return negociacaoService.reservar(id, authentication.getName());
     }
 
+    @GetMapping("/anuncios/{id}/reserva")
+    public ReservaResponseDTO consultarReserva(@PathVariable UUID id, Authentication authentication) {
+        return negociacaoService.consultarReserva(id, authentication.getName());
+    }
+
     @DeleteMapping("/anuncios/{id}/reserva")
     public AnuncioResponseDTO cancelarReserva(@PathVariable UUID id, Authentication authentication) {
         return negociacaoService.cancelarReserva(id, authentication.getName());
+    }
+
+    @GetMapping("/usuarios/me/reservas")
+    public PaginadoDTO<ReservaResponseDTO> listarReservas(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size,
+            Authentication authentication) {
+        return negociacaoService.listarReservas(authentication.getName(), page, size);
     }
 
     @PostMapping("/anuncios/{id}/conclusao")

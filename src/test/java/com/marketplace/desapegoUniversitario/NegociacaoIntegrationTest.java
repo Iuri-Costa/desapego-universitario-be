@@ -1,5 +1,7 @@
 package com.marketplace.desapegoUniversitario;
 
+import com.marketplace.desapegoUniversitario.domain.Reserva;
+import com.marketplace.desapegoUniversitario.repository.ReservaRepository;
 import com.marketplace.desapegoUniversitario.repository.UsuarioRepository;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -9,6 +11,8 @@ import org.springframework.http.MediaType;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 
+import java.time.Duration;
+import java.time.Instant;
 import java.util.UUID;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
@@ -27,6 +31,9 @@ class NegociacaoIntegrationTest {
 
     @Autowired
     private UsuarioRepository usuarioRepository;
+
+    @Autowired
+    private ReservaRepository reservaRepository;
 
     @Test
     void reservaConclusaoEAvaliacaoDevemFuncionar() throws Exception {
@@ -177,5 +184,135 @@ class NegociacaoIntegrationTest {
                         .header("Authorization", "Bearer " + token))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.codigo").value("NAO_ENCONTRADO"));
+    }
+
+    @Test
+    void consultaDeReservaDeveSerRestritaAosParticipantes() throws Exception {
+        String vendedor = TestAutenticacao.cadastrarELogar(mockMvc);
+        UUID anuncioId = TestAutenticacao.criarAnuncio(mockMvc, vendedor);
+        String comprador = TestAutenticacao.cadastrarELogar(mockMvc);
+        String terceiro = TestAutenticacao.cadastrarELogar(mockMvc);
+
+        mockMvc.perform(get("/api/v1/anuncios/{id}/reserva", anuncioId)
+                        .header("Authorization", "Bearer " + vendedor))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.codigo").value("NAO_ENCONTRADO"));
+
+        mockMvc.perform(post("/api/v1/anuncios/{id}/reserva", anuncioId)
+                        .header("Authorization", "Bearer " + comprador))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(get("/api/v1/anuncios/{id}/reserva", anuncioId)
+                        .header("Authorization", "Bearer " + comprador))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.anuncioId").value(anuncioId.toString()))
+                .andExpect(jsonPath("$.status").value("ATIVA"))
+                .andExpect(jsonPath("$.anuncioStatus").value("RESERVADO"));
+
+        mockMvc.perform(get("/api/v1/anuncios/{id}/reserva", anuncioId)
+                        .header("Authorization", "Bearer " + vendedor))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("ATIVA"));
+
+        mockMvc.perform(get("/api/v1/anuncios/{id}/reserva", anuncioId)
+                        .header("Authorization", "Bearer " + terceiro))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.codigo").value("ACESSO_NEGADO"));
+    }
+
+    @Test
+    void historicoDeReservasDeveListarCanceladasEConcluidas() throws Exception {
+        String vendedor = TestAutenticacao.cadastrarELogar(mockMvc);
+        String compradorCancelou = TestAutenticacao.cadastrarELogar(mockMvc);
+        String compradorConcluiu = TestAutenticacao.cadastrarELogar(mockMvc);
+        String terceiro = TestAutenticacao.cadastrarELogar(mockMvc);
+        UUID anuncioCancelado = TestAutenticacao.criarAnuncio(mockMvc, vendedor, "Reserva cancelada");
+        UUID anuncioConcluido = TestAutenticacao.criarAnuncio(mockMvc, vendedor, "Reserva concluída");
+
+        mockMvc.perform(post("/api/v1/anuncios/{id}/reserva", anuncioCancelado)
+                        .header("Authorization", "Bearer " + compradorCancelou))
+                .andExpect(status().isOk());
+        mockMvc.perform(delete("/api/v1/anuncios/{id}/reserva", anuncioCancelado)
+                        .header("Authorization", "Bearer " + compradorCancelou))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(post("/api/v1/anuncios/{id}/reserva", anuncioConcluido)
+                        .header("Authorization", "Bearer " + compradorConcluiu))
+                .andExpect(status().isOk());
+        mockMvc.perform(post("/api/v1/anuncios/{id}/conclusao", anuncioConcluido)
+                        .header("Authorization", "Bearer " + vendedor))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(get("/api/v1/usuarios/me/reservas")
+                        .header("Authorization", "Bearer " + vendedor)
+                        .param("size", "100"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.totalElements").value(2))
+                .andExpect(jsonPath("$.content[?(@.status == 'CANCELADA')]").exists())
+                .andExpect(jsonPath("$.content[?(@.status == 'CONCLUIDA')]").exists());
+
+        mockMvc.perform(get("/api/v1/usuarios/me/reservas")
+                        .header("Authorization", "Bearer " + compradorCancelou))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.totalElements").value(1))
+                .andExpect(jsonPath("$.content[0].status").value("CANCELADA"));
+
+        mockMvc.perform(get("/api/v1/usuarios/me/reservas")
+                        .header("Authorization", "Bearer " + compradorConcluiu))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.totalElements").value(1))
+                .andExpect(jsonPath("$.content[0].status").value("CONCLUIDA"));
+
+        mockMvc.perform(get("/api/v1/usuarios/me/reservas")
+                        .header("Authorization", "Bearer " + terceiro))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.totalElements").value(0));
+
+        mockMvc.perform(get("/api/v1/usuarios/me/reservas")
+                        .header("Authorization", "Bearer " + vendedor)
+                        .param("size", "0"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.codigo").value("PARAMETRO_INVALIDO"));
+    }
+
+    @Test
+    void reservaVencidaDeveLiberarAnuncioESerMarcadaComoExpirada() throws Exception {
+        String vendedor = TestAutenticacao.cadastrarELogar(mockMvc);
+        String primeiroComprador = TestAutenticacao.cadastrarELogar(mockMvc);
+        String segundoComprador = TestAutenticacao.cadastrarELogar(mockMvc);
+        UUID anuncioId = TestAutenticacao.criarAnuncio(mockMvc, vendedor, "Reserva vencida");
+
+        mockMvc.perform(post("/api/v1/anuncios/{id}/reserva", anuncioId)
+                        .header("Authorization", "Bearer " + primeiroComprador))
+                .andExpect(status().isOk());
+
+        Reserva reserva = reservaRepository
+                .findByAnuncioIdAndCanceladaEmIsNullAndConcluidaEmIsNullAndExpiradaEmIsNull(anuncioId)
+                .orElseThrow();
+        reserva.setCriadoEm(Instant.now().minus(Duration.ofHours(25)));
+        reservaRepository.save(reserva);
+
+        mockMvc.perform(get("/api/v1/anuncios/{id}/reserva", anuncioId)
+                        .header("Authorization", "Bearer " + vendedor))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("EXPIRADA"))
+                .andExpect(jsonPath("$.anuncioStatus").value("ATIVO"))
+                .andExpect(jsonPath("$.expiradaEm").exists());
+
+        mockMvc.perform(post("/api/v1/anuncios/{id}/mensagens", anuncioId)
+                        .header("Authorization", "Bearer " + primeiroComprador)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"conteudo\":\"Ainda está disponível?\"}"))
+                .andExpect(status().isForbidden());
+
+        mockMvc.perform(post("/api/v1/anuncios/{id}/reserva", anuncioId)
+                        .header("Authorization", "Bearer " + segundoComprador))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("RESERVADO"));
+
+        mockMvc.perform(get("/api/v1/usuarios/me/reservas")
+                        .header("Authorization", "Bearer " + primeiroComprador))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content[?(@.status == 'EXPIRADA')]").exists());
     }
 }

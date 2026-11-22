@@ -346,6 +346,7 @@ A maioria das variáveis está em [`.env.example`](.env.example); as demais têm
 | `JWT_ACCESS_TOKEN_TTL`, `JWT_REFRESH_TOKEN_TTL` | `PT15M`, `P7D` | Validade dos tokens |
 | `EMAIL_DOMINIOS_INSTITUCIONAIS` | `edu.br,edu,ac.br` | Domínios aceitos no cadastro |
 | `RATE_LIMIT_LOGIN`, `RATE_LIMIT_CADASTRO`, `RATE_LIMIT_JANELA` | `5`, `3`, `PT1M` | Limites por IP |
+| `RESERVA_TTL` | `PT24H` | TTL da reserva ativa antes da expiração automática |
 | `MAIL_HOST`, `MAIL_PORT`, `MAIL_USERNAME`, `MAIL_PASSWORD`, `MAIL_FROM` | vazios / `587` | SMTP; sem `MAIL_HOST` nada é enviado |
 | `MAIL_SMTP_AUTH`, `MAIL_STARTTLS` | `true` | Autenticação/TLS do SMTP |
 | `FRONTEND_URL` | `http://localhost:5173` | URL usada nos links de e-mail |
@@ -402,7 +403,8 @@ Documentação completa, payloads e códigos de resposta em [docs/API.md](docs/A
 | POST / GET | `/api/v1/anuncios/{id}/mensagens` | Bearer; somente comprador da reserva e vendedor |
 | GET | `/api/v1/mensagens/conversas` | Bearer; lista conversas do usuário |
 | PATCH | `/api/v1/mensagens/{id}/lida` | Bearer |
-| POST / DELETE | `/api/v1/anuncios/{id}/reserva` | Bearer |
+| POST / GET / DELETE | `/api/v1/anuncios/{id}/reserva` | Bearer; GET só para comprador/vendedor |
+| GET | `/api/v1/usuarios/me/reservas` | Bearer; histórico paginado, reservas expiram após `RESERVA_TTL` |
 | POST | `/api/v1/anuncios/{id}/conclusao` | Bearer |
 | POST | `/api/v1/anuncios/{id}/avaliacoes` | Bearer |
 | GET | `/api/v1/usuarios/{id}/avaliacoes` | Público |

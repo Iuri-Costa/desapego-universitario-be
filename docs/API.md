@@ -109,6 +109,7 @@ Envelope retornado por buscas paginadas:
 - `TipoAnuncio`: `VENDA`, `DOACAO`
 - `Condicao`: `NOVO`, `SEMINOVO`, `USADO`
 - `StatusAnuncio`: `ATIVO`, `RESERVADO`, `VENDIDO`, `DOADO`, `REMOVIDO`
+- `StatusReserva`: `ATIVA`, `CANCELADA`, `CONCLUIDA`, `EXPIRADA`
 - `StatusDenuncia`: `PENDENTE`, `RESOLVIDA`, `REJEITADA`
 
 ---
@@ -267,12 +268,33 @@ Mensagens só trafegam entre o vendedor e o comprador de uma reserva ativa ou co
 | Método | Rota | Auth | Exemplo | Resposta |
 |---|---|---|---|---|
 | POST | `/anuncios/{id}/reserva` | Bearer, comprador | `curl -X POST "$BASE/anuncios/$ID/reserva" -H "$AUTH"` | `200` anúncio com `status=RESERVADO`; `409` se já reservado por outro comprador |
+| GET | `/anuncios/{id}/reserva` | Bearer, comprador/vendedor | `curl "$BASE/anuncios/$ID/reserva" -H "$AUTH"` | `200` `ReservaResponseDTO`; `403` para terceiros; `404` sem reserva |
+| GET | `/usuarios/me/reservas` | Bearer | `curl "$BASE/usuarios/me/reservas?page=0&size=20" -H "$AUTH"` | `200` `PaginadoDTO<ReservaResponseDTO>` com o histórico do usuário |
 | DELETE | `/anuncios/{id}/reserva` | Bearer, comprador/vendedor | `curl -X DELETE "$BASE/anuncios/$ID/reserva" -H "$AUTH"` | `200` anúncio volta para `ATIVO` |
 | POST | `/anuncios/{id}/conclusao` | Bearer, vendedor | `curl -X POST "$BASE/anuncios/$ID/conclusao" -H "$AUTH"` | `200` `VENDIDO` ou `DOADO` conforme `tipo` |
 | POST | `/anuncios/{id}/avaliacoes` | Bearer, comprador da reserva concluída | `curl -X POST "$BASE/anuncios/$ID/avaliacoes" -H "$AUTH" -H 'Content-Type: application/json' -d '{"nota":5,"comentario":"Transação tranquila"}'` | `200` `AvaliacaoResponseDTO` (upsert por anúncio/avaliador) |
 | GET | `/usuarios/{id}/avaliacoes` | Bearer | `curl "$BASE/usuarios/55555555-5555-5555-5555-555555555555/avaliacoes" -H "$AUTH"` | `200` `{"media":4.5,"total":2,"avaliacoes":[...]}` |
 
-Não há GET/histórico de reservas nem expiração automática de reserva. A avaliação é apenas comprador → vendedor.
+Uma reserva ativa expira automaticamente após `RESERVA_TTL` (padrão `PT24H`): o anúncio volta para `ATIVO` e a reserva passa a ter `status=EXPIRADA`. A expiração é aplicada ao consultar uma reserva, listar o histórico, criar/cancelar/concluir uma reserva ou trocar mensagens. `ReservaResponseDTO.status` é `ATIVA`, `CANCELADA`, `CONCLUIDA` ou `EXPIRADA`. A avaliação é apenas comprador → vendedor.
+
+`ReservaResponseDTO`:
+
+```json
+{
+  "id": "77777777-7777-7777-7777-777777777777",
+  "anuncioId": "11111111-1111-1111-1111-111111111111",
+  "anuncioTitulo": "Calculadora científica",
+  "anuncioStatus": "RESERVADO",
+  "compradorId": "33333333-3333-3333-3333-333333333333",
+  "compradorNome": "João Silva",
+  "vendedorId": "55555555-5555-5555-5555-555555555555",
+  "status": "ATIVA",
+  "criadoEm": "2026-11-22T16:00:00Z",
+  "canceladaEm": null,
+  "concluidaEm": null,
+  "expiradaEm": null
+}
+```
 
 ## Denúncias
 

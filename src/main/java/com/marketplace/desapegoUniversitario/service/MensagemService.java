@@ -31,21 +31,25 @@ public class MensagemService {
     private final UsuarioRepository usuarioRepository;
     private final ReservaRepository reservaRepository;
     private final NotificacaoService notificacaoService;
+    private final NegociacaoService negociacaoService;
 
     public MensagemService(MensagemRepository mensagemRepository,
                            AnuncioRepository anuncioRepository,
                            UsuarioRepository usuarioRepository,
                            ReservaRepository reservaRepository,
-                           NotificacaoService notificacaoService) {
+                           NotificacaoService notificacaoService,
+                           NegociacaoService negociacaoService) {
         this.mensagemRepository = mensagemRepository;
         this.anuncioRepository = anuncioRepository;
         this.usuarioRepository = usuarioRepository;
         this.reservaRepository = reservaRepository;
         this.notificacaoService = notificacaoService;
+        this.negociacaoService = negociacaoService;
     }
 
     @Transactional
     public MensagemResponseDTO enviar(UUID anuncioId, MensagemRequestDTO dto, String emailUsuario) {
+        negociacaoService.expirarVencidas();
         Anuncio anuncio = buscarAnuncio(anuncioId);
         Usuario remetente = buscarUsuario(emailUsuario);
         Usuario vendedor = anuncio.getUsuario();
@@ -81,8 +85,9 @@ public class MensagemService {
         return paraResponse(mensagem);
     }
 
-    @Transactional(readOnly = true)
+    @Transactional
     public List<MensagemResponseDTO> listar(UUID anuncioId, UUID compradorId, String emailUsuario) {
+        negociacaoService.expirarVencidas();
         Anuncio anuncio = buscarAnuncio(anuncioId);
         Usuario usuario = buscarUsuario(emailUsuario);
         UUID vendedorId = anuncio.getUsuario() == null ? null : anuncio.getUsuario().getId();
@@ -143,7 +148,7 @@ public class MensagemService {
     }
 
     private void exigirCompradorDaReserva(UUID anuncioId, UUID compradorId) {
-        if (!reservaRepository.existsByAnuncioIdAndCompradorIdAndCanceladaEmIsNull(
+        if (!reservaRepository.existsByAnuncioIdAndCompradorIdAndCanceladaEmIsNullAndExpiradaEmIsNull(
                 anuncioId, compradorId)) {
             throw new AccessDeniedException(
                     "Somente o comprador e o vendedor deste anúncio podem trocar mensagens");

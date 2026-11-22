@@ -41,4 +41,6 @@ public class Reserva {
     private Instant canceladaEm;
 
     private Instant concluidaEm;
+
+    private Instant expiradaEm;
 }
