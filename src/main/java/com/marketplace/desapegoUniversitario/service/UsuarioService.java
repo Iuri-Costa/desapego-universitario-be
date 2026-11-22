@@ -1,10 +1,12 @@
 package com.marketplace.desapegoUniversitario.service;
 
+import com.marketplace.desapegoUniversitario.config.DominiosInstitucionais;
 import com.marketplace.desapegoUniversitario.domain.TipoToken;
 import com.marketplace.desapegoUniversitario.domain.Usuario;
 import com.marketplace.desapegoUniversitario.dto.CadastroDTO;
 import com.marketplace.desapegoUniversitario.dto.RedefinirSenhaDTO;
 import com.marketplace.desapegoUniversitario.dto.UsuarioResponseDTO;
+import com.marketplace.desapegoUniversitario.exception.DominioInstitucionalInvalidoException;
 import com.marketplace.desapegoUniversitario.exception.RecursoNaoEncontradoException;
 import com.marketplace.desapegoUniversitario.mapper.UsuarioMapper;
 import com.marketplace.desapegoUniversitario.repository.RefreshTokenRepository;
@@ -25,6 +27,7 @@ public class UsuarioService {
     private final RefreshTokenRepository refreshTokenRepository;
     private final PasswordEncoder passwordEncoder;
     private final EmailSender emailSender;
+    private final DominiosInstitucionais dominiosInstitucionais;
     private final UsuarioTokenService usuarioTokenService;
     private final String frontendUrl;
 
@@ -32,12 +35,14 @@ public class UsuarioService {
                           RefreshTokenRepository refreshTokenRepository,
                           PasswordEncoder passwordEncoder,
                           EmailSender emailSender,
+                          DominiosInstitucionais dominiosInstitucionais,
                           UsuarioTokenService usuarioTokenService,
                           @Value("${app.frontend.url}") String frontendUrl) {
         this.usuarioRepository = usuarioRepository;
         this.refreshTokenRepository = refreshTokenRepository;
         this.passwordEncoder = passwordEncoder;
         this.emailSender = emailSender;
+        this.dominiosInstitucionais = dominiosInstitucionais;
         this.usuarioTokenService = usuarioTokenService;
         this.frontendUrl = frontendUrl;
     }
@@ -45,6 +50,10 @@ public class UsuarioService {
     @Transactional
     public void cadastrar(CadastroDTO dto) {
         String email = normalizar(dto.email());
+        if (!dominiosInstitucionais.aceito(email)) {
+            throw new DominioInstitucionalInvalidoException(
+                    "Somente e-mails de domínio institucional são aceitos no cadastro");
+        }
         if (usuarioRepository.existsByEmail(email)) {
             emailSender.enviar(email, "Tentativa de cadastro",
                     "Recebemos uma solicitação de cadastro para este e-mail. "

@@ -11,7 +11,7 @@ Esse repositório é o backend, uma API REST em Spring Boot. O frontend fica em 
 - Java + Spring Boot
 - Spring Data JPA
 - PostgreSQL (hospedado no Render)
-- Spring Security (usado apenas para o `BCryptPasswordEncoder`, hash de senha)
+- Spring Security (JWT, `SecurityFilterChain`, `UserDetailsService`, roles e BCrypt)
 - Maven
 
 ## Como rodar
@@ -22,7 +22,7 @@ Pré requisitos: Java 21+, Maven (ou usa o wrapper `./mvnw`, que já vem no repo
    ```bash
    cp .env.example .env
    ```
-   Variáveis principais: `SPRING_PROFILES_ACTIVE`, `PORT`, `JDBC_URL`, `DB_USERNAME`, `DB_PASSWORD`, `CORS_ALLOWED_ORIGINS`, `JPA_SHOW_SQL`.
+   Variáveis principais: `SPRING_PROFILES_ACTIVE`, `PORT`, `JDBC_URL`, `DB_USERNAME`, `DB_PASSWORD`, `CORS_ALLOWED_ORIGINS`, `JWT_SECRET` (obrigatório em produção, mínimo 32 bytes), `EMAIL_DOMINIOS_INSTITUCIONAIS`, `MAIL_HOST`/`MAIL_USERNAME`/`MAIL_PASSWORD` (opcionais; sem eles nada é enviado), `RATE_LIMIT_LOGIN` e `RATE_LIMIT_CADASTRO`.
 2. Roda a aplicação:
 
 ```bash
@@ -56,10 +56,25 @@ O perfil padrão é `dev`. Em produção, defina `SPRING_PROFILES_ACTIVE=prod` (
 
 | Método | Rota | Descrição |
 |---|---|---|
-| POST | `/api/v1/usuarios/cadastro` | Cria uma conta (nome, email, senha) |
-| POST | `/api/v1/usuarios/login` | Autentica um usuário (email, senha) |
+| POST | `/api/v1/usuarios/cadastro` | Solicita cadastro (somente domínios institucionais configurados) |
+| POST | `/api/v1/usuarios/login` | Autentica e devolve `accessToken` + `refreshToken` |
+| POST | `/api/v1/usuarios/verificar-email` | Confirma o e-mail com o token recebido |
+| POST | `/api/v1/usuarios/reenviar-verificacao` | Reenvia o token de verificação |
+| POST | `/api/v1/usuarios/recuperar-senha` | Envia token de redefinição por e-mail |
+| POST | `/api/v1/usuarios/redefinir-senha` | Define uma nova senha com o token |
 
-Todas as rotas são versionadas em `/api/v1`, retornam e recebem JSON. Senhas são armazenadas com hash (BCrypt), nunca em texto puro.
+### Autenticação e autorização
+
+| Método | Rota | Descrição |
+|---|---|---|
+| POST | `/api/v1/auth/refresh` | Rotaciona o refresh token (o antigo é revogado) |
+| POST | `/api/v1/auth/logout` | Revoga os refresh tokens da sessão (requer Bearer token) |
+| PUT | `/api/v1/anuncios/{id}` | Edita anúncio (somente o dono) |
+| DELETE | `/api/v1/anuncios/{id}` | Remove anúncio (somente o dono) |
+| PATCH | `/api/v1/admin/anuncios/{id}/moderacao` | Modera anúncio (somente ADMIN) |
+| DELETE | `/api/v1/admin/anuncios/{id}` | Remove anúncio por moderação (somente ADMIN) |
+
+Access tokens expiram em 15 minutos (`JWT_ACCESS_TOKEN_TTL`); refresh tokens em 7 dias (`JWT_REFRESH_TOKEN_TTL`), com rotação e revogação. Cadastros recebem `ROLE_USUARIO`; para promover a ADMIN, atualize o `role` diretamente no banco. Todas as rotas são versionadas em `/api/v1`, retornam e recebem JSON. Senhas são armazenadas com hash (BCrypt) e nunca aparecem em respostas ou logs.
 
 ### Formato de erro
 

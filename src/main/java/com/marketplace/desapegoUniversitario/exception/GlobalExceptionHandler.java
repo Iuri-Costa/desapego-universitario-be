@@ -96,6 +96,12 @@ public class GlobalExceptionHandler {
                 "Você não tem permissão para acessar este recurso", request, List.of());
     }
 
+    @ExceptionHandler(DominioInstitucionalInvalidoException.class)
+    public ResponseEntity<ErroResponse> tratarDominioInvalido(DominioInstitucionalInvalidoException ex,
+                                                              HttpServletRequest request) {
+        return resposta(HttpStatus.BAD_REQUEST, "DOMINIO_INVALIDO", ex.getMessage(), request, List.of());
+    }
+
     @ExceptionHandler(ConflitoException.class)
     public ResponseEntity<ErroResponse> tratarConflito(ConflitoException ex,
                                                        HttpServletRequest request) {
