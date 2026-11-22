@@ -11,6 +11,8 @@ import com.marketplace.desapegoUniversitario.dto.AnuncioFiltroDTO;
 import com.marketplace.desapegoUniversitario.dto.ImagemResponseDTO;
 import com.marketplace.desapegoUniversitario.dto.PaginadoDTO;
 import com.marketplace.desapegoUniversitario.service.AnuncioService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -34,6 +36,7 @@ import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/v1/anuncios")
+@Tag(name = "Anúncios", description = "CRUD, busca paginada e imagens dos anúncios")
 public class AnuncioController {
 
     private final AnuncioService anuncioService;
@@ -43,11 +46,15 @@ public class AnuncioController {
     }
 
     @PostMapping
+    @Operation(summary = "Cria um anúncio", description = "Requer autenticação. IDs são UUID e status inicial é ATIVO.")
     public AnuncioResponseDTO criar(@Valid @RequestBody AnuncioRequestDTO dto, Authentication authentication) {
         return anuncioService.criar(dto, authentication.getName());
     }
 
     @GetMapping
+    @Operation(summary = "Busca anúncios com filtros combináveis",
+            description = "Parâmetros: q, categoria, tipo, precoMin, precoMax, condicao, campus, status, "
+                    + "page (base 0), size (1-100) e sort (ex.: `preco,asc;criadoEm,desc`).")
     public PaginadoDTO<AnuncioResponseDTO> buscar(
             @RequestParam(name = "q", required = false) String texto,
             @RequestParam(name = "categoria", required = false) Categoria categoria,
@@ -89,6 +96,8 @@ public class AnuncioController {
     }
 
     @PostMapping(value = "/{id}/imagens", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @Operation(summary = "Envia imagens (multipart/form-data)",
+            description = "Campo `imagens`, até 5 arquivos de 2MB. Tipos aceitos: JPEG, PNG e WebP.")
     public List<ImagemResponseDTO> adicionarImagens(@PathVariable UUID id,
                                                      @RequestPart("imagens") List<MultipartFile> imagens,
                                                      Authentication authentication) {

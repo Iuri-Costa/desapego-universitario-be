@@ -3,6 +3,7 @@ package com.marketplace.desapegoUniversitario.controller;
 import com.marketplace.desapegoUniversitario.dto.DenunciaRequestDTO;
 import com.marketplace.desapegoUniversitario.dto.DenunciaResponseDTO;
 import com.marketplace.desapegoUniversitario.service.DenunciaService;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.Authentication;
@@ -17,6 +18,7 @@ import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/v1")
+@Tag(name = "Denúncias", description = "Registro e acompanhamento de denúncias")
 public class DenunciaController {
 
     private final DenunciaService denunciaService;

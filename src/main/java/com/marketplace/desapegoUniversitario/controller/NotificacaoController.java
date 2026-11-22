@@ -4,6 +4,7 @@ import com.marketplace.desapegoUniversitario.dto.DispositivoFCMRequestDTO;
 import com.marketplace.desapegoUniversitario.dto.NotificacaoResponseDTO;
 import com.marketplace.desapegoUniversitario.dto.PaginadoDTO;
 import com.marketplace.desapegoUniversitario.service.NotificacaoService;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -24,6 +25,7 @@ import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/v1/notificacoes")
+@Tag(name = "Notificações", description = "Histórico de notificações e dispositivos FCM")
 public class NotificacaoController {
 
     private final NotificacaoService notificacaoService;

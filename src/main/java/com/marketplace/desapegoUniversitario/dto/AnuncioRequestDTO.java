@@ -7,6 +7,7 @@ import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.Digits;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
+import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.Size;
 
 import java.math.BigDecimal;
@@ -14,11 +15,13 @@ import java.math.BigDecimal;
 public record AnuncioRequestDTO(
         @NotBlank(message = "O título é obrigatório")
         @Size(max = 150, message = "O título deve ter no máximo 150 caracteres")
+        @Schema(example = "Calculadora científica")
         String titulo,
 
         @NotNull(message = "O preço é obrigatório")
         @DecimalMin(value = "0.0", inclusive = true, message = "O preço não pode ser negativo")
         @Digits(integer = 10, fraction = 2, message = "O preço deve ter até 10 dígitos inteiros e 2 casas decimais")
+        @Schema(example = "80.00")
         BigDecimal preco,
 
         @Size(max = 5000, message = "A descrição deve ter no máximo 5000 caracteres")

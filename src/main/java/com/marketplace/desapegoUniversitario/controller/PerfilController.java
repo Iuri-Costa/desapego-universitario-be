@@ -6,6 +6,7 @@ import com.marketplace.desapegoUniversitario.dto.AtualizarPerfilDTO;
 import com.marketplace.desapegoUniversitario.dto.PaginadoDTO;
 import com.marketplace.desapegoUniversitario.dto.PerfilResponseDTO;
 import com.marketplace.desapegoUniversitario.service.PerfilService;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -17,6 +18,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/api/v1/usuarios/me")
+@Tag(name = "Perfil", description = "Dados do usuário autenticado e histórico")
 public class PerfilController {
 
     private final PerfilService perfilService;

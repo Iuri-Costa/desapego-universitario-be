@@ -3,6 +3,7 @@ package com.marketplace.desapegoUniversitario.controller;
 import com.marketplace.desapegoUniversitario.dto.MensagemRequestDTO;
 import com.marketplace.desapegoUniversitario.dto.MensagemResponseDTO;
 import com.marketplace.desapegoUniversitario.service.MensagemService;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.Authentication;
@@ -21,6 +22,7 @@ import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/v1")
+@Tag(name = "Mensagens", description = "Conversas por anúncio entre comprador e vendedor")
 public class MensagemController {
 
     private final MensagemService mensagemService;

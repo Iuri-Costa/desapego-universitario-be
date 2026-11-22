@@ -9,6 +9,7 @@ import com.marketplace.desapegoUniversitario.dto.TokenEmailDTO;
 import com.marketplace.desapegoUniversitario.dto.TokenResponseDTO;
 import com.marketplace.desapegoUniversitario.service.AutenticacaoService;
 import com.marketplace.desapegoUniversitario.service.UsuarioService;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -18,6 +19,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/api/v1/usuarios")
+@Tag(name = "Usuários", description = "Cadastro, login legado, verificação e recuperação de senha")
 public class UsuarioController {
 
     private final UsuarioService usuarioService;

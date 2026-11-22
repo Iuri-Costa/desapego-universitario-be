@@ -52,6 +52,8 @@ public class SecurityConfig {
                         .authenticationEntryPoint(authenticationEntryPoint)
                         .accessDeniedHandler(accessDeniedHandler))
                 .authorizeHttpRequests(regras -> regras
+                        .requestMatchers("/openapi.json", "/openapi.json/**", "/v3/api-docs/**",
+                                "/swagger-ui.html", "/swagger-ui/**").permitAll()
                         .requestMatchers(HttpMethod.POST,
                                 "/api/v1/usuarios/cadastro", "/api/v1/usuarios/login",
                                 "/api/v1/usuarios/verificar-email", "/api/v1/usuarios/reenviar-verificacao",

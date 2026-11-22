@@ -6,6 +6,7 @@ import com.marketplace.desapegoUniversitario.dto.AvaliacaoRequestDTO;
 import com.marketplace.desapegoUniversitario.dto.AvaliacaoResponseDTO;
 import com.marketplace.desapegoUniversitario.dto.AvaliacoesResponseDTO;
 import com.marketplace.desapegoUniversitario.service.NegociacaoService;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -20,6 +21,7 @@ import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/v1")
+@Tag(name = "Negociações", description = "Reserva, conclusão e avaliação de anúncios")
 public class NegociacaoController {
 
     private final NegociacaoService negociacaoService;

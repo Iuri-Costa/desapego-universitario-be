@@ -8,6 +8,7 @@ import com.marketplace.desapegoUniversitario.dto.PaginadoDTO;
 import com.marketplace.desapegoUniversitario.dto.ResolucaoDenunciaDTO;
 import com.marketplace.desapegoUniversitario.service.AnuncioService;
 import com.marketplace.desapegoUniversitario.service.DenunciaService;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
@@ -24,6 +25,7 @@ import org.springframework.web.bind.annotation.RestController;
 import java.util.UUID;
 
 @RestController
+@Tag(name = "Administração", description = "Moderação de anúncios e denúncias (somente ADMIN)")
 public class AdminController {
 
     private final AnuncioService anuncioService;
