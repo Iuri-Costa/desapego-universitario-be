@@ -39,9 +39,14 @@ class ConfiguracaoProducaoTest {
         assertTrue(conteudo.contains("${JWT_SECRET:?defina JWT_SECRET no .env"));
         assertFalse(conteudo.contains("${DB_PASSWORD:-postgres}"));
         assertFalse(conteudo.contains("${JWT_SECRET:-troque"));
-        assertFalse(conteudo.contains("MAIL_PASSWORD:-"));
-        assertFalse(conteudo.contains("S3_SECRET_KEY:-"));
-        assertFalse(conteudo.contains("FCM_CREDENTIALS:-"));
+
+        for (String opcional : List.of("MAIL_USERNAME:-", "MAIL_PASSWORD:-", "S3_ACCESS_KEY:-",
+                "S3_SECRET_KEY:-", "S3_PUBLIC_BASE_URL:-", "FCM_CREDENTIALS:-", "FCM_PROJECT_ID:-")) {
+            assertTrue(conteudo.contains(opcional), "variável opcional sem default vazio: " + opcional);
+        }
+        assertFalse(conteudo.contains("MAIL_USERNAME?"));
+        assertFalse(conteudo.contains("S3_ACCESS_KEY?"));
+        assertFalse(conteudo.contains("FCM_CREDENTIALS?"));
     }
 
     @Test
@@ -50,7 +55,8 @@ class ConfiguracaoProducaoTest {
 
         for (String variavel : List.of("API_PORT", "DB_NAME", "DB_PORT", "DB_PASSWORD", "JWT_SECRET",
                 "ADMIN_BOOTSTRAP_EMAIL", "MAIL_USERNAME", "MAIL_PASSWORD", "S3_ACCESS_KEY", "S3_SECRET_KEY",
-                "FCM_CREDENTIALS", "FCM_PROJECT_ID", "OPENAPI_ENABLED", "SWAGGER_UI_ENABLED", "APP_VERSION")) {
+                "S3_PUBLIC_BASE_URL", "FCM_CREDENTIALS", "FCM_PROJECT_ID", "OPENAPI_ENABLED",
+                "SWAGGER_UI_ENABLED", "APP_VERSION")) {
             assertTrue(conteudo.contains(variavel + "="), "variável ausente: " + variavel);
         }
         assertFalse(conteudo.contains("JWT_SECRET=troque"));
