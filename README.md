@@ -28,7 +28,7 @@ Pré requisitos: Java 21+, Maven (ou usa o wrapper `./mvnw`, que já vem no repo
 ./mvnw spring-boot:run
 ```
 
-A API sobe em `http://localhost:8080`. As tabelas são criadas/atualizadas automaticamente pelo Hibernate (`ddl-auto=update`), não precisa rodar migração manual.
+A API sobe em `http://localhost:8080`. O schema é gerenciado pelo Flyway (`src/main/resources/db/migration`) e validado pelo Hibernate (`ddl-auto=validate`). Em bancos já existentes, o Flyway cria o baseline automaticamente; em bancos novos, a migration `V1` é aplicada.
 
 ## Endpoints
 
