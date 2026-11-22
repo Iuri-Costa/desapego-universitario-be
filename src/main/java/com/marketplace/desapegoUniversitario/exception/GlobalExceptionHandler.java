@@ -76,6 +76,12 @@ public class GlobalExceptionHandler {
         return resposta(HttpStatus.UNAUTHORIZED, "CREDENCIAIS_INVALIDAS", ex.getMessage(), request, List.of());
     }
 
+    @ExceptionHandler(TokenInvalidoException.class)
+    public ResponseEntity<ErroResponse> tratarTokenInvalido(TokenInvalidoException ex,
+                                                            HttpServletRequest request) {
+        return resposta(HttpStatus.UNAUTHORIZED, "TOKEN_INVALIDO", ex.getMessage(), request, List.of());
+    }
+
     @ExceptionHandler(AuthenticationException.class)
     public ResponseEntity<ErroResponse> tratarNaoAutenticado(AuthenticationException ex,
                                                              HttpServletRequest request) {

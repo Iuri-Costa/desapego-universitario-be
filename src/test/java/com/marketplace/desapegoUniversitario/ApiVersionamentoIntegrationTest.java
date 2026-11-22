@@ -24,6 +24,8 @@ class ApiVersionamentoIntegrationTest {
     @Test
     void deveCriarAnuncioNaVersaoV1() throws Exception {
         mockMvc.perform(post("/api/v1/anuncios")
+                        .header(org.springframework.http.HttpHeaders.AUTHORIZATION,
+                                "Bearer " + TestAutenticacao.cadastrarELogar(mockMvc))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
@@ -48,7 +50,9 @@ class ApiVersionamentoIntegrationTest {
 
     @Test
     void deveRetornarNaoEncontradoParaRotaSemVersao() throws Exception {
-        mockMvc.perform(get("/anuncios"))
+        mockMvc.perform(get("/anuncios")
+                        .header(org.springframework.http.HttpHeaders.AUTHORIZATION,
+                                "Bearer " + TestAutenticacao.cadastrarELogar(mockMvc)))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.codigo").value("NAO_ENCONTRADO"));
     }

@@ -18,6 +18,6 @@ public final class UsuarioMapper {
     }
 
     public static UsuarioResponseDTO toResponse(Usuario usuario) {
-        return new UsuarioResponseDTO(usuario.getNome(), usuario.getEmail(), null);
+        return new UsuarioResponseDTO(usuario.getNome(), usuario.getEmail());
     }
 }

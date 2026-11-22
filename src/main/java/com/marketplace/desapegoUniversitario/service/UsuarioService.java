@@ -2,10 +2,8 @@ package com.marketplace.desapegoUniversitario.service;
 
 import com.marketplace.desapegoUniversitario.domain.Usuario;
 import com.marketplace.desapegoUniversitario.dto.CadastroDTO;
-import com.marketplace.desapegoUniversitario.dto.LoginDTO;
 import com.marketplace.desapegoUniversitario.dto.UsuarioResponseDTO;
 import com.marketplace.desapegoUniversitario.exception.ConflitoException;
-import com.marketplace.desapegoUniversitario.exception.CredenciaisInvalidasException;
 import com.marketplace.desapegoUniversitario.exception.RecursoNaoEncontradoException;
 import com.marketplace.desapegoUniversitario.mapper.UsuarioMapper;
 import com.marketplace.desapegoUniversitario.repository.UsuarioRepository;
@@ -35,18 +33,6 @@ public class UsuarioService {
 
         Usuario usuario = UsuarioMapper.toEntity(dto, passwordEncoder.encode(dto.senha()));
         return UsuarioMapper.toResponse(usuarioRepository.save(usuario));
-    }
-
-    @Transactional(readOnly = true)
-    public UsuarioResponseDTO login(LoginDTO dto) {
-        Usuario usuario = usuarioRepository.findByEmail(dto.email())
-                .orElseThrow(() -> new CredenciaisInvalidasException("E-mail ou senha inválidos"));
-
-        if (!passwordEncoder.matches(dto.senha(), usuario.getSenha())) {
-            throw new CredenciaisInvalidasException("E-mail ou senha inválidos");
-        }
-
-        return UsuarioMapper.toResponse(usuario);
     }
 
     @Transactional(readOnly = true)

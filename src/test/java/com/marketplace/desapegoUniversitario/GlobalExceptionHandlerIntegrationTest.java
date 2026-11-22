@@ -27,6 +27,8 @@ class GlobalExceptionHandlerIntegrationTest {
     @Test
     void deveRetornarFormatoPadronizadoParaErroDeValidacao() throws Exception {
         mockMvc.perform(post("/api/v1/anuncios")
+                        .header(org.springframework.http.HttpHeaders.AUTHORIZATION,
+                                "Bearer " + TestAutenticacao.cadastrarELogar(mockMvc))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{}"))
                 .andExpect(status().isBadRequest())
@@ -52,7 +54,9 @@ class GlobalExceptionHandlerIntegrationTest {
 
     @Test
     void deveRetornarNaoEncontradoAoDeletarAnuncioInexistente() throws Exception {
-        mockMvc.perform(delete("/api/v1/anuncios/{id}", UUID.randomUUID()))
+        mockMvc.perform(delete("/api/v1/anuncios/{id}", UUID.randomUUID())
+                        .header(org.springframework.http.HttpHeaders.AUTHORIZATION,
+                                "Bearer " + TestAutenticacao.cadastrarELogar(mockMvc)))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.codigo").value("NAO_ENCONTRADO"))
                 .andExpect(jsonPath("$.mensagem").value("Anúncio não encontrado"));
