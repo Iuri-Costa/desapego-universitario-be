@@ -24,13 +24,16 @@ public class MensagemService {
     private final MensagemRepository mensagemRepository;
     private final AnuncioRepository anuncioRepository;
     private final UsuarioRepository usuarioRepository;
+    private final NotificacaoService notificacaoService;
 
     public MensagemService(MensagemRepository mensagemRepository,
                            AnuncioRepository anuncioRepository,
-                           UsuarioRepository usuarioRepository) {
+                           UsuarioRepository usuarioRepository,
+                           NotificacaoService notificacaoService) {
         this.mensagemRepository = mensagemRepository;
         this.anuncioRepository = anuncioRepository;
         this.usuarioRepository = usuarioRepository;
+        this.notificacaoService = notificacaoService;
     }
 
     @Transactional
@@ -60,6 +63,9 @@ public class MensagemService {
 
         Mensagem mensagem = mensagemRepository.save(new Mensagem(
                 null, anuncio, remetente, destinatario, dto.conteudo().trim(), Instant.now(), null));
+        notificacaoService.notificar(destinatario.getId(), "Nova mensagem",
+                "Você recebeu uma mensagem sobre o anúncio '" + anuncio.getTitulo() + "'",
+                "MENSAGEM", anuncioId);
         return paraResponse(mensagem);
     }
 

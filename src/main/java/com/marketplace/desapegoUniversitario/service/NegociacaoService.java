@@ -33,17 +33,20 @@ public class NegociacaoService {
     private final AnuncioRepository anuncioRepository;
     private final UsuarioRepository usuarioRepository;
     private final AnuncioService anuncioService;
+    private final NotificacaoService notificacaoService;
 
     public NegociacaoService(ReservaRepository reservaRepository,
                              AvaliacaoRepository avaliacaoRepository,
                              AnuncioRepository anuncioRepository,
                              UsuarioRepository usuarioRepository,
-                             AnuncioService anuncioService) {
+                             AnuncioService anuncioService,
+                             NotificacaoService notificacaoService) {
         this.reservaRepository = reservaRepository;
         this.avaliacaoRepository = avaliacaoRepository;
         this.anuncioRepository = anuncioRepository;
         this.usuarioRepository = usuarioRepository;
         this.anuncioService = anuncioService;
+        this.notificacaoService = notificacaoService;
     }
 
     @Transactional
@@ -69,7 +72,10 @@ public class NegociacaoService {
 
         reservaRepository.save(new Reserva(null, anuncio, comprador, Instant.now(), null, null));
         anuncio.setStatus(StatusAnuncio.RESERVADO);
-        return anuncioService.paraResponse(salvar(anuncio));
+        AnuncioResponseDTO resposta = anuncioService.paraResponse(salvar(anuncio));
+        notificacaoService.notificar(vendedor.getId(), "Anúncio reservado",
+                "Seu anúncio '" + anuncio.getTitulo() + "' foi reservado", "RESERVA", anuncioId);
+        return resposta;
     }
 
     @Transactional
@@ -109,7 +115,11 @@ public class NegociacaoService {
         reservaRepository.save(reserva);
         anuncio.setStatus(anuncio.getTipo() == TipoAnuncio.DOACAO
                 ? StatusAnuncio.DOADO : StatusAnuncio.VENDIDO);
-        return anuncioService.paraResponse(salvar(anuncio));
+        AnuncioResponseDTO resposta = anuncioService.paraResponse(salvar(anuncio));
+        notificacaoService.notificar(reserva.getComprador().getId(), "Negociação concluída",
+                "A negociação do anúncio '" + anuncio.getTitulo() + "' foi concluída",
+                "CONCLUSAO", anuncioId);
+        return resposta;
     }
 
     @Transactional
@@ -131,7 +141,10 @@ public class NegociacaoService {
                         dto.nota(), dto.comentario(), Instant.now()));
         avaliacao.setNota(dto.nota());
         avaliacao.setComentario(dto.comentario());
-        return paraResponse(avaliacaoRepository.save(avaliacao));
+        AvaliacaoResponseDTO resposta = paraResponse(avaliacaoRepository.save(avaliacao));
+        notificacaoService.notificar(vendedor.getId(), "Nova avaliação",
+                "Você recebeu uma avaliação de " + dto.nota() + " estrelas", "AVALIACAO", anuncioId);
+        return resposta;
     }
 
     @Transactional(readOnly = true)

@@ -31,15 +31,18 @@ public class DenunciaService {
     private final AnuncioRepository anuncioRepository;
     private final UsuarioRepository usuarioRepository;
     private final AnuncioService anuncioService;
+    private final NotificacaoService notificacaoService;
 
     public DenunciaService(DenunciaRepository denunciaRepository,
                            AnuncioRepository anuncioRepository,
                            UsuarioRepository usuarioRepository,
-                           AnuncioService anuncioService) {
+                           AnuncioService anuncioService,
+                           NotificacaoService notificacaoService) {
         this.denunciaRepository = denunciaRepository;
         this.anuncioRepository = anuncioRepository;
         this.usuarioRepository = usuarioRepository;
         this.anuncioService = anuncioService;
+        this.notificacaoService = notificacaoService;
     }
 
     @Transactional
@@ -92,7 +95,10 @@ public class DenunciaService {
         denuncia.setStatus(dto.status());
         denuncia.setResolvidaEm(Instant.now());
         denuncia.setResolvidaPor(buscarUsuario(emailUsuario));
-        return paraResponse(denunciaRepository.save(denuncia));
+        DenunciaResponseDTO resposta = paraResponse(denunciaRepository.save(denuncia));
+        notificacaoService.notificar(denuncia.getDenunciante().getId(), "Denúncia analisada",
+                "Sua denúncia foi analisada: " + dto.status(), "DENUNCIA", denuncia.getAnuncio().getId());
+        return resposta;
     }
 
     private DenunciaResponseDTO paraResponse(Denuncia denuncia) {
