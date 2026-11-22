@@ -40,6 +40,7 @@ public class SecurityConfig {
                                 "/api/v1/usuarios/cadastro", "/api/v1/usuarios/login",
                                 "/api/v1/auth/login", "/api/v1/auth/refresh").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/anuncios", "/api/v1/anuncios/**").permitAll()
+                        .requestMatchers("/api/v1/admin/**").hasRole("ADMIN")
                         .anyRequest().authenticated())
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 

@@ -26,7 +26,7 @@ public class UsuarioDetailsService implements UserDetailsService {
         return usuarioRepository.findByEmail(email)
                 .map(usuario -> User.withUsername(usuario.getEmail())
                         .password(usuario.getSenha())
-                        .authorities(List.of(new SimpleGrantedAuthority("ROLE_USUARIO")))
+                        .authorities(List.of(new SimpleGrantedAuthority("ROLE_" + usuario.getRole().name())))
                         .build())
                 .orElseThrow(() -> new UsernameNotFoundException("Usuário não encontrado"));
     }

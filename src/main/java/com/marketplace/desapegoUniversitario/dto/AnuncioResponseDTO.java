@@ -12,6 +12,7 @@ public record AnuncioResponseDTO(
         String descricao,
         String imagem,
         Categoria categoria,
-        String contato
+        String contato,
+        boolean moderado
 ) {
 }

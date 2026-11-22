@@ -1,6 +1,7 @@
 package com.marketplace.desapegoUniversitario.mapper;
 
 import com.marketplace.desapegoUniversitario.domain.Anuncio;
+import com.marketplace.desapegoUniversitario.domain.Usuario;
 import com.marketplace.desapegoUniversitario.dto.AnuncioRequestDTO;
 import com.marketplace.desapegoUniversitario.dto.AnuncioResponseDTO;
 
@@ -11,7 +12,7 @@ public final class AnuncioMapper {
     private AnuncioMapper() {
     }
 
-    public static Anuncio toEntity(AnuncioRequestDTO dto) {
+    public static Anuncio toEntity(AnuncioRequestDTO dto, Usuario usuario) {
         Anuncio anuncio = new Anuncio();
         anuncio.setTitulo(dto.titulo());
         anuncio.setPreco(dto.preco());
@@ -19,6 +20,8 @@ public final class AnuncioMapper {
         anuncio.setImagem(dto.imagem());
         anuncio.setCategoria(dto.categoria());
         anuncio.setContato(dto.contato());
+        anuncio.setUsuario(usuario);
+        anuncio.setModerado(false);
         return anuncio;
     }
 
@@ -30,7 +33,8 @@ public final class AnuncioMapper {
                 anuncio.getDescricao(),
                 anuncio.getImagem(),
                 anuncio.getCategoria(),
-                anuncio.getContato()
+                anuncio.getContato(),
+                anuncio.isModerado()
         );
     }
 

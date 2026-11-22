@@ -5,10 +5,13 @@ import com.marketplace.desapegoUniversitario.dto.AnuncioRequestDTO;
 import com.marketplace.desapegoUniversitario.dto.AnuncioResponseDTO;
 import com.marketplace.desapegoUniversitario.service.AnuncioService;
 import jakarta.validation.Valid;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -27,8 +30,8 @@ public class AnuncioController {
     }
 
     @PostMapping
-    public AnuncioResponseDTO criar(@Valid @RequestBody AnuncioRequestDTO dto) {
-        return anuncioService.criar(dto);
+    public AnuncioResponseDTO criar(@Valid @RequestBody AnuncioRequestDTO dto, Authentication authentication) {
+        return anuncioService.criar(dto, authentication.getName());
     }
 
     @GetMapping
@@ -41,8 +44,16 @@ public class AnuncioController {
         return anuncioService.listarPorCategoria(categoria);
     }
 
+    @PutMapping("/{id}")
+    public AnuncioResponseDTO atualizar(@PathVariable UUID id,
+                                        @Valid @RequestBody AnuncioRequestDTO dto,
+                                        Authentication authentication) {
+        return anuncioService.atualizar(id, dto, authentication.getName());
+    }
+
     @DeleteMapping("/{id}")
-    public void deletarPorId(@PathVariable UUID id) {
-        anuncioService.deletarPorID(id);
+    public ResponseEntity<Void> deletarPorId(@PathVariable UUID id, Authentication authentication) {
+        anuncioService.deletarPorID(id, authentication.getName());
+        return ResponseEntity.noContent().build();
     }
 }

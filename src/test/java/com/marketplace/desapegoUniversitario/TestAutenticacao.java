@@ -1,6 +1,8 @@
 package com.marketplace.desapegoUniversitario;
 
 import com.jayway.jsonpath.JsonPath;
+import com.marketplace.desapegoUniversitario.domain.Role;
+import com.marketplace.desapegoUniversitario.repository.UsuarioRepository;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 
@@ -55,5 +57,26 @@ public final class TestAutenticacao {
         String email = novoEmail();
         cadastrar(mockMvc, email);
         return login(mockMvc, email);
+    }
+
+    public static String cadastrarAdminELogar(MockMvc mockMvc, UsuarioRepository usuarioRepository) throws Exception {
+        String email = novoEmail();
+        cadastrar(mockMvc, email);
+        var usuario = usuarioRepository.findByEmail(email).orElseThrow();
+        usuario.setRole(Role.ADMIN);
+        usuarioRepository.save(usuario);
+        return login(mockMvc, email);
+    }
+
+    public static UUID criarAnuncio(MockMvc mockMvc, String token) throws Exception {
+        String corpo = mockMvc.perform(post("/api/v1/anuncios")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"titulo":"Livro","preco":10.00,"categoria":"LIVROS"}
+                                """))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+        return UUID.fromString(JsonPath.read(corpo, "$.id"));
     }
 }

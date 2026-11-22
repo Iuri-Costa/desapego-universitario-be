@@ -1,11 +1,15 @@
 package com.marketplace.desapegoUniversitario.service;
 
+import com.marketplace.desapegoUniversitario.domain.Anuncio;
 import com.marketplace.desapegoUniversitario.domain.Categoria;
+import com.marketplace.desapegoUniversitario.domain.Usuario;
 import com.marketplace.desapegoUniversitario.dto.AnuncioRequestDTO;
 import com.marketplace.desapegoUniversitario.dto.AnuncioResponseDTO;
 import com.marketplace.desapegoUniversitario.exception.RecursoNaoEncontradoException;
 import com.marketplace.desapegoUniversitario.mapper.AnuncioMapper;
 import com.marketplace.desapegoUniversitario.repository.AnuncioRepository;
+import com.marketplace.desapegoUniversitario.repository.UsuarioRepository;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -16,14 +20,32 @@ import java.util.UUID;
 public class AnuncioService {
 
     private final AnuncioRepository anuncioRepository;
+    private final UsuarioRepository usuarioRepository;
 
-    public AnuncioService(AnuncioRepository anuncioRepository) {
+    public AnuncioService(AnuncioRepository anuncioRepository, UsuarioRepository usuarioRepository) {
         this.anuncioRepository = anuncioRepository;
+        this.usuarioRepository = usuarioRepository;
     }
 
     @Transactional
-    public AnuncioResponseDTO criar(AnuncioRequestDTO dto) {
-        return AnuncioMapper.toResponse(anuncioRepository.save(AnuncioMapper.toEntity(dto)));
+    public AnuncioResponseDTO criar(AnuncioRequestDTO dto, String emailUsuario) {
+        Usuario usuario = buscarUsuario(emailUsuario);
+        Anuncio anuncio = AnuncioMapper.toEntity(dto, usuario);
+        return AnuncioMapper.toResponse(anuncioRepository.save(anuncio));
+    }
+
+    @Transactional
+    public AnuncioResponseDTO atualizar(UUID id, AnuncioRequestDTO dto, String emailUsuario) {
+        Anuncio anuncio = buscarAnuncio(id);
+        garantirDono(anuncio, buscarUsuario(emailUsuario));
+
+        anuncio.setTitulo(dto.titulo());
+        anuncio.setPreco(dto.preco());
+        anuncio.setDescricao(dto.descricao());
+        anuncio.setImagem(dto.imagem());
+        anuncio.setCategoria(dto.categoria());
+        anuncio.setContato(dto.contato());
+        return AnuncioMapper.toResponse(anuncioRepository.save(anuncio));
     }
 
     @Transactional(readOnly = true)
@@ -32,15 +54,42 @@ public class AnuncioService {
     }
 
     @Transactional
-    public void deletarPorID(UUID id) {
-        if (!anuncioRepository.existsById(id)) {
-            throw new RecursoNaoEncontradoException("Anúncio não encontrado");
-        }
-        anuncioRepository.deleteById(id);
+    public void deletarPorID(UUID id, String emailUsuario) {
+        Anuncio anuncio = buscarAnuncio(id);
+        garantirDono(anuncio, buscarUsuario(emailUsuario));
+        anuncioRepository.delete(anuncio);
     }
 
     @Transactional(readOnly = true)
     public List<AnuncioResponseDTO> listarPorCategoria(Categoria categoria) {
         return AnuncioMapper.toResponseList(anuncioRepository.findByCategoria(categoria));
+    }
+
+    @Transactional
+    public AnuncioResponseDTO moderar(UUID id, boolean moderado) {
+        Anuncio anuncio = buscarAnuncio(id);
+        anuncio.setModerado(moderado);
+        return AnuncioMapper.toResponse(anuncioRepository.save(anuncio));
+    }
+
+    @Transactional
+    public void removerPorModeracao(UUID id) {
+        anuncioRepository.delete(buscarAnuncio(id));
+    }
+
+    private Anuncio buscarAnuncio(UUID id) {
+        return anuncioRepository.findById(id)
+                .orElseThrow(() -> new RecursoNaoEncontradoException("Anúncio não encontrado"));
+    }
+
+    private Usuario buscarUsuario(String email) {
+        return usuarioRepository.findByEmail(email)
+                .orElseThrow(() -> new RecursoNaoEncontradoException("Usuário não encontrado"));
+    }
+
+    private void garantirDono(Anuncio anuncio, Usuario usuario) {
+        if (anuncio.getUsuario() == null || !anuncio.getUsuario().getId().equals(usuario.getId())) {
+            throw new AccessDeniedException("Somente o dono pode alterar este anúncio");
+        }
     }
 }
