@@ -6,6 +6,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
+import java.time.Instant;
 import java.util.UUID;
 
 @Setter
@@ -33,4 +34,7 @@ public class Usuario {
 
     @Column(nullable = false)
     private boolean emailVerificado;
+
+    @Column(nullable = false)
+    private Instant criadoEm;
 }

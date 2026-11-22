@@ -18,4 +18,6 @@ public interface FavoritoRepository extends JpaRepository<Favorito, UUID> {
     boolean existsByUsuarioIdAndAnuncioId(UUID usuarioId, UUID anuncioId);
 
     long countByAnuncioId(UUID anuncioId);
+
+    long countByUsuarioId(UUID usuarioId);
 }

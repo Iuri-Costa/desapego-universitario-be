@@ -5,6 +5,8 @@ import com.marketplace.desapegoUniversitario.domain.Usuario;
 import com.marketplace.desapegoUniversitario.dto.CadastroDTO;
 import com.marketplace.desapegoUniversitario.dto.UsuarioResponseDTO;
 
+import java.time.Instant;
+
 public final class UsuarioMapper {
 
     private UsuarioMapper() {
@@ -17,6 +19,7 @@ public final class UsuarioMapper {
         usuario.setSenha(senhaHash);
         usuario.setRole(Role.USUARIO);
         usuario.setEmailVerificado(false);
+        usuario.setCriadoEm(Instant.now());
         return usuario;
     }
 

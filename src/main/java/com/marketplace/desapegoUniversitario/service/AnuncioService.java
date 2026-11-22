@@ -223,7 +223,7 @@ public class AnuncioService {
                 .toList();
     }
 
-    private AnuncioResponseDTO paraResponse(Anuncio anuncio) {
+    public AnuncioResponseDTO paraResponse(Anuncio anuncio) {
         return AnuncioMapper.toResponse(anuncio, imagensDe(anuncio.getId()));
     }
 
