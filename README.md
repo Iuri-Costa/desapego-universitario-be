@@ -41,6 +41,13 @@ A API sobe em `http://localhost:8080`. O schema é gerenciado pelo Flyway (`src/
 
 O perfil padrão é `dev`. Em produção, defina `SPRING_PROFILES_ACTIVE=prod` (o `Dockerfile` já define esse valor). Todas as configurações sensíveis vêm de variáveis de ambiente; nenhum segredo fica versionado.
 
+### Health check no Render
+
+Configure o **Health Check Path** do serviço no Render como `/healthz`. Esse endpoint é público e
+responde `200 {"status":"ok"}` sem consultar banco ou dependências externas, evitando falsos negativos
+durante o cold start (enquanto a JVM inicializa ou o PostgreSQL ainda está subindo). Para diagnóstico
+completo use `/actuator/health` e para liveness use `/actuator/health/liveness`.
+
 ## Endpoints
 
 ### Anúncios

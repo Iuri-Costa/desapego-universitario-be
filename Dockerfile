@@ -21,6 +21,6 @@ ENV SPRING_PROFILES_ACTIVE=prod \
 EXPOSE 8080
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=45s --retries=3 \
-    CMD curl --fail --silent --show-error http://localhost:8080/actuator/health || exit 1
+    CMD curl --fail --silent --show-error http://localhost:8080/healthz || exit 1
 
 ENTRYPOINT ["java", "-jar", "/app/app.jar"]

@@ -52,7 +52,7 @@ public class SecurityConfig {
                         .authenticationEntryPoint(authenticationEntryPoint)
                         .accessDeniedHandler(accessDeniedHandler))
                 .authorizeHttpRequests(regras -> regras
-                        .requestMatchers("/actuator/health", "/actuator/health/**",
+                        .requestMatchers("/healthz", "/actuator/health", "/actuator/health/**",
                                 "/actuator/info", "/actuator/metrics").permitAll()
                         .requestMatchers("/openapi.json", "/openapi.json/**", "/v3/api-docs/**",
                                 "/swagger-ui.html", "/swagger-ui/**").permitAll()
