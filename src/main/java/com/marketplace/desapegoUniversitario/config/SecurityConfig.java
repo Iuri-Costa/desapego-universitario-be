@@ -42,7 +42,10 @@ public class SecurityConfig {
                 .headers(headers -> {
                     headers.frameOptions(frame -> frame.deny());
                     headers.contentSecurityPolicy(csp -> csp.policyDirectives(
-                            "default-src 'none'; frame-ancestors 'none'; object-src 'none'; base-uri 'none'"));
+                            "default-src 'self'; script-src 'self' 'unsafe-inline'; "
+                                    + "style-src 'self' 'unsafe-inline'; img-src 'self' data:; "
+                                    + "font-src 'self' data:; connect-src 'self'; "
+                                    + "frame-ancestors 'none'; object-src 'none'; base-uri 'none'"));
                     headers.referrerPolicy(referrer -> referrer.policy(ReferrerPolicy.NO_REFERRER));
                     headers.permissionsPolicy(policy -> policy.policy(
                             "camera=(), microphone=(), geolocation=(), payment=()"));
@@ -56,8 +59,8 @@ public class SecurityConfig {
                 .authorizeHttpRequests(regras -> regras
                         .requestMatchers("/healthz", "/actuator/health", "/actuator/health/**",
                                 "/actuator/info", "/actuator/metrics").permitAll()
-                        .requestMatchers("/openapi.json", "/openapi.json/**", "/v3/api-docs/**",
-                                "/swagger-ui.html", "/swagger-ui/**").permitAll()
+                        .requestMatchers("/openapi.json", "/v3/api-docs", "/v3/api-docs/**",
+                                "/swagger-ui.html", "/swagger-ui/**", "/webjars/**").permitAll()
                         .requestMatchers(HttpMethod.POST,
                                 "/api/v1/usuarios/cadastro", "/api/v1/usuarios/login",
                                 "/api/v1/usuarios/verificar-email", "/api/v1/usuarios/reenviar-verificacao",
