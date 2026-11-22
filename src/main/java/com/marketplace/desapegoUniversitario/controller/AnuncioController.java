@@ -17,7 +17,7 @@ import java.util.List;
 import java.util.UUID;
 
 @RestController
-@RequestMapping("/anuncios")
+@RequestMapping("/api/v1/anuncios")
 public class AnuncioController {
 
     private final AnuncioService anuncioService;

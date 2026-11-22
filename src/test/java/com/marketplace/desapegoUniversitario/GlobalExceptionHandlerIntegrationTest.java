@@ -26,7 +26,7 @@ class GlobalExceptionHandlerIntegrationTest {
 
     @Test
     void deveRetornarFormatoPadronizadoParaErroDeValidacao() throws Exception {
-        mockMvc.perform(post("/anuncios")
+        mockMvc.perform(post("/api/v1/anuncios")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{}"))
                 .andExpect(status().isBadRequest())
@@ -34,14 +34,14 @@ class GlobalExceptionHandlerIntegrationTest {
                 .andExpect(jsonPath("$.status").value(400))
                 .andExpect(jsonPath("$.codigo").value("VALIDACAO"))
                 .andExpect(jsonPath("$.mensagem").value("Erro de validação"))
-                .andExpect(jsonPath("$.caminho").value("/anuncios"))
+                .andExpect(jsonPath("$.caminho").value("/api/v1/anuncios"))
                 .andExpect(jsonPath("$.erros[*].campo",
                         containsInAnyOrder("titulo", "preco", "categoria")));
     }
 
     @Test
     void deveRetornarCredenciaisInvalidasNoLogin() throws Exception {
-        mockMvc.perform(post("/usuarios/login")
+        mockMvc.perform(post("/api/v1/usuarios/login")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"email\":\"naoexiste@email.com\",\"senha\":\"senha123\"}"))
                 .andExpect(status().isUnauthorized())
@@ -52,7 +52,7 @@ class GlobalExceptionHandlerIntegrationTest {
 
     @Test
     void deveRetornarNaoEncontradoAoDeletarAnuncioInexistente() throws Exception {
-        mockMvc.perform(delete("/anuncios/{id}", UUID.randomUUID()))
+        mockMvc.perform(delete("/api/v1/anuncios/{id}", UUID.randomUUID()))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.codigo").value("NAO_ENCONTRADO"))
                 .andExpect(jsonPath("$.mensagem").value("Anúncio não encontrado"));

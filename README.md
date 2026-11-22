@@ -1,6 +1,6 @@
 # Desapego Universitário — Backend
-- **URL Base da API:** [https://desapego-universitario-be.onrender.com](https://desapego-universitario-be.onrender.com)
-- **Endpoint de Anúncios:** `/anuncios`
+- **URL Base da API:** [https://desapego-universitario-be.onrender.com/api/v1](https://desapego-universitario-be.onrender.com/api/v1)
+- **Endpoint de Anúncios:** `/api/v1/anuncios`
 
 Marketplace de economia circular para estudantes universitários, permitindo que anunciem itens (livros, eletrônicos, móveis, etc.) para venda ou doação dentro do campus. Feito como desafio técnico do processo seletivo do Laboratório Vortex (Unifor), etapa VORTEX 2026.2.
 
@@ -47,19 +47,36 @@ O perfil padrão é `dev`. Em produção, defina `SPRING_PROFILES_ACTIVE=prod` (
 
 | Método | Rota | Descrição |
 |---|---|---|
-| POST | `/anuncios` | Cria um anúncio |
-| GET | `/anuncios` | Lista todos os anúncios |
-| GET | `/anuncios/categoria/{categoria}` | Lista anúncios de uma categoria (`LIVROS`, `ELETRONICOS`, `ENGENHARIA`, `COMPUTACAO`, `MOVEIS`, `VESTUARIO`, `PAPELARIA`, `OUTROS`) |
-| DELETE | `/anuncios/{id}` | Deleta um anúncio pelo id |
+| POST | `/api/v1/anuncios` | Cria um anúncio |
+| GET | `/api/v1/anuncios` | Lista todos os anúncios |
+| GET | `/api/v1/anuncios/categoria/{categoria}` | Lista anúncios de uma categoria (`LIVROS`, `ELETRONICOS`, `ENGENHARIA`, `COMPUTACAO`, `MOVEIS`, `VESTUARIO`, `PAPELARIA`, `OUTROS`) |
+| DELETE | `/api/v1/anuncios/{id}` | Deleta um anúncio pelo id |
 
 ### Usuários
 
 | Método | Rota | Descrição |
 |---|---|---|
-| POST | `/usuarios/cadastro` | Cria uma conta (nome, email, senha) |
-| POST | `/usuarios/login` | Autentica um usuário (email, senha) |
+| POST | `/api/v1/usuarios/cadastro` | Cria uma conta (nome, email, senha) |
+| POST | `/api/v1/usuarios/login` | Autentica um usuário (email, senha) |
 
-Todas as rotas retornam e recebem JSON. Senhas são armazenadas com hash (BCrypt), nunca em texto puro.
+Todas as rotas são versionadas em `/api/v1`, retornam e recebem JSON. Senhas são armazenadas com hash (BCrypt), nunca em texto puro.
+
+### Formato de erro
+
+Erros seguem um formato único, com mensagens em português e detalhes por campo quando aplicável:
+
+```json
+{
+  "timestamp": "2026-11-22T12:00:00-03:00",
+  "status": 400,
+  "codigo": "VALIDACAO",
+  "mensagem": "Erro de validação",
+  "caminho": "/api/v1/anuncios",
+  "erros": [
+    { "campo": "titulo", "mensagem": "O título é obrigatório" }
+  ]
+}
+```
 
 <p align=center>Diário de Bordo da IA</p>
 
