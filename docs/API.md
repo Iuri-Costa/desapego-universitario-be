@@ -1,254 +1,57 @@
-# API REST — guia para clientes (Retrofit / Ktor)
+# API — Desapego Universitário
 
-Base URL: `http://localhost:8080` (em produção, use a URL do serviço).
-Contrato completo: `GET /openapi.json` · UI: `GET /swagger-ui.html`.
-Política de versão e depreciação: [`docs/VERSIONAMENTO.md`](VERSIONAMENTO.md).
+Última revisão: 2026-11-22. Este documento descreve o código atual do backend.
+O contrato gerado automaticamente está em `/v3/api-docs` (alias legado: `/openapi.json`) e a UI em `/swagger-ui.html`.
+Todas as rotas de negócio usam o prefixo `/api/v1`; rotas de infraestrutura estão listadas no final.
+[Política de versionamento](VERSIONAMENTO.md).
 
-Todas as rotas usam o prefixo `/api/v1`. Rotas sem versão retornam `404`.
-Respostas e requisições são JSON (`application/json`), exceto upload de imagens (`multipart/form-data`).
+## Convenções
 
-> Ao gerar o cliente Kotlin a partir do `openapi.json`, configure o gerador para manter nomes
-> de enums em `UPPER_SNAKE_CASE` e para **ignorar campos desconhecidos** (`ignoreUnknownKeys = true`).
-> Isso preserva compatibilidade quando a API adiciona campos novos.
+- Identificadores são UUID (`11111111-1111-1111-1111-111111111111` nos exemplos).
+- Datas em ISO-8601 UTC (`2026-11-22T16:00:00Z`).
+- Valores monetários são JSON number com até 2 casas decimais (`80.00`).
+- Enums são upper-case.
+- Toda resposta de erro usa `ErroResponse`, inclusive 401/403 dos filtros de segurança e 429 do rate limit.
+- `page` começa em 0; `size` vai de 1 a 100 (padrão 20).
+- `sort` usa `campo,direcao`, separado por `;` para múltiplos campos. Ex.: `preco,asc;criadoEm,desc`.
+- Campos permitidos em `sort`: `titulo`, `preco`, `categoria`, `condicao`, `tipo`, `status`, `campus`, `criadoEm`, `atualizadoEm`.
 
----
+Exemplos abaixo usam:
 
-## 1. Convenções do contrato
-
-| Item | Formato |
-| --- | --- |
-| Identificadores | UUID (string), ex.: `9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d` |
-| Datas de domínio | ISO 8601 em UTC, terminando em `Z`, ex.: `2026-11-22T16:00:00Z` |
-| Enums | `UPPER_SNAKE_CASE` na saída; a API aceita qualquer caixa na entrada |
-| Dinheiro | Número decimal (JSON `number`), ex.: `80.00` |
-| Erros | `ErroResponse` (ver §5) |
-
----
-
-## 2. Autenticação
-
-### 2.1 Cadastro e verificação
-
-```
-POST /api/v1/usuarios/cadastro
-{ "nome": "Maria Almeida", "email": "maria@universidade.edu.br", "senha": "Senha@12345" }
+```bash
+BASE=https://seu-host/api/v1
+TOKEN=eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJhbHVub0B1bml2ZXJzaWRhZGUuZWR1LmJyIn0.exemplo
+AUTH="Authorization: Bearer $TOKEN"
+ID=11111111-1111-1111-1111-111111111111
 ```
 
-- E-mail institucional obrigatório (domínios configuráveis: `edu.br`, `edu`, `ac.br` por padrão).
-- Senha: 8–72 caracteres, com maiúscula, minúscula, dígito e símbolo.
-- O cadastro envia um token de verificação por e-mail. Confirmar com:
+## Autenticação, CORS e correlação
 
-```
-POST /api/v1/usuarios/verificar-email
-{ "token": "<token recebido por e-mail>" }
-```
+- Envie `Authorization: Bearer <accessToken>` nas rotas protegidas.
+- Access token: 15 min (`JWT_ACCESS_TOKEN_TTL`). Refresh token: 7 dias (`JWT_REFRESH_TOKEN_TTL`), de uso único; a rotação revoga a família inteira se o token antigo for reutilizado.
+- Algoritmo: HS256 (`app.jwt.secret` / `JWT_SECRET`, mínimo 32 bytes).
+- CORS aceita apenas origens explícitas de `CORS_ALLOWED_ORIGINS`; não usa credenciais/cookies.
+  - Headers permitidos: `Authorization`, `Content-Type`, `X-Correlation-Id`.
+  - Headers expostos ao navegador: `Retry-After`, `X-Correlation-Id`.
+- Toda requisição recebe `X-Correlation-Id`. Se o cliente enviar um valor válido (até 64 caracteres, `[A-Za-z0-9._-]`), ele é preservado; caso contrário um UUID é gerado. O mesmo valor entra no campo `correlationId` dos erros e nos logs.
 
-Sem e-mail verificado, o login falha com `401 CREDENCIAIS_INVALIDAS`.
-`POST /api/v1/usuarios/reenviar-verificacao` reenvia o token.
-
-### 2.2 Login
-
-Endpoint recomendado: `POST /api/v1/auth/login` (o antigo `POST /api/v1/usuarios/login` continua compatível).
-
-```
-POST /api/v1/auth/login
-{ "email": "maria@universidade.edu.br", "senha": "Senha@12345" }
-
-200 OK
-{
-  "accessToken": "eyJhbGciOiJIUzM4NCJ9...",
-  "refreshToken": "eyJhbGciOiJIUzM4NCJ9...",
-  "tipo": "Bearer",
-  "expiresIn": 900
-}
-```
-
-- `accessToken`: JWT HS256, válido por **15 minutos** (`expiresIn` em segundos).
-- `refreshToken`: JWT opaco para o cliente, válido por **7 dias**, de **uso único**.
-- Credenciais inválidas, usuário inexistente e e-mail não verificado retornam a **mesma** mensagem genérica.
-- Rate limit por IP: 5 logins/minuto (configurável). Ao exceder: `429 LIMITE_EXCEDIDO` com header `Retry-After`.
-
-### 2.3 Usando o access token
-
-Envie em **toda** rota autenticada:
-
-```http
-Authorization: Bearer <accessToken>
-```
-
-Exceções públicas: cadastro/login/verificação/recuperação, `GET /api/v1/anuncios`,
-`GET /uploads/**`, `/openapi.json` e `/swagger-ui.html`.
-
-### 2.4 Refresh token (rotação)
-
-```
-POST /api/v1/auth/refresh
-{ "refreshToken": "<refresh atual>" }
-
-200 OK
-{ "accessToken": "<novo access>", "refreshToken": "<novo refresh>", "tipo": "Bearer", "expiresIn": 900 }
-```
-
-Regras importantes para o cliente:
-
-1. **Sempre substitua** o refresh guardado pelo novo retornado.
-2. O refresh antigo é revogado na rotação. Se for reutilizado, a API **revoga toda a família**
-   de tokens daquele usuário (todas as sessões precisam fazer login novamente).
-3. Portanto, **nunca dispare duas renovações concorrentes**: use um lock/mutex e descarte
-   requisições enfileiradas que receberam `401` enquanto a renovação acontecia.
-4. `POST /api/v1/auth/logout` (autenticado) revoga todos os refresh tokens do usuário.
-5. Armazene tokens em local seguro (Keychain/Keystore), nunca em logs, analytics ou crash reports.
-6. Se o refresh falhar (`401 TOKEN_INVALIDO`), limpe a sessão e volte ao login.
-
-### 2.5 Retrofit
-
-```kotlin
-interface AuthApi {
-    @POST("api/v1/auth/login")
-    suspend fun login(@Body body: LoginRequest): TokenResponse
-
-    @POST("api/v1/auth/refresh")
-    suspend fun refresh(@Body body: RefreshRequest): TokenResponse
-
-    @POST("api/v1/auth/logout")
-    suspend fun logout(): Response<Unit>
-}
-
-val auth = Retrofit.Builder()
-    .baseUrl("http://localhost:8080/")
-    .addConverterFactory(json.asConverterFactory("application/json".toMediaType()))
-    .client(okHttpComInterceptorDeBearer())
-    .build()
-    .create(AuthApi::class.java)
-```
-
-Use um `Authenticator` do OkHttp com um `Mutex` (ou `Semaphore(1)`) para a renovação.
-Em paralelo, um interceptor de `401` deve redescartar apenas a requisição que recebeu o
-primeiro `401`; as demais devem repetir com o novo token já atualizado.
-
-### 2.6 Ktor
-
-```kotlin
-val client = HttpClient(CIO) {
-    install(ContentNegotiation) { json(Json { ignoreUnknownKeys = true }) }
-    install(Auth) {
-        bearer {
-            loadTokens { BearerTokens(tokenStore.access, tokenStore.refresh) }
-            refreshTokens {
-                val response = client.post("http://localhost:8080/api/v1/auth/refresh") {
-                    setBody(RefreshRequest(tokenStore.refresh))
-                    markAsRefreshTokenRequest()
-                }
-                val tokens = response.body<TokenResponse>()
-                tokenStore.save(tokens.accessToken, tokens.refreshToken)
-                BearerTokens(tokens.accessToken, tokens.refreshToken)
-            }
-        }
-    }
-}
-```
-
----
-
-## 3. Paginação, filtros e ordenação
-
-Endpoints paginados (busca de anúncios, favoritos, histórico, notificações, denúncias) usam:
-
-- Query params: `page` (base **0**, default `0`), `size` (1–100, default `20`), `sort` quando documentado.
-- Resposta sempre com o mesmo envelope:
+## Erros
 
 ```json
 {
-  "content": [ { "id": "...", "titulo": "Calculadora" } ],
-  "page": 0,
-  "size": 20,
-  "totalElements": 137,
-  "totalPages": 7,
-  "first": true,
-  "last": false
+  "timestamp": "2026-11-22T16:00:00Z",
+  "status": 429,
+  "codigo": "LIMITE_EXCEDIDO",
+  "mensagem": "Muitas tentativas. Tente novamente mais tarde",
+  "caminho": "/api/v1/auth/login",
+  "correlationId": "9f1c2f7e-6b0a-4f2e-9c66-3a1f0e2d4b11",
+  "erros": []
 }
 ```
 
-`page < 0`, `size < 1`, `size > 100` retornam `400 PARAMETRO_INVALIDO`.
+Códigos estáveis de `codigo`: `VALIDACAO`, `REQUISICAO_INVALIDA`, `PARAMETRO_INVALIDO`, `PARAMETRO_OBRIGATORIO`, `IMAGEM_INVALIDA`, `NAO_ENCONTRADO`, `LIMITE_EXCEDIDO`, `CREDENCIAIS_INVALIDAS`, `TOKEN_INVALIDO`, `NAO_AUTENTICADO`, `ACESSO_NEGADO`, `DOMINIO_INVALIDO`, `CONFLITO`, `CONFLITO_DE_DADOS`, `METODO_NAO_SUPORTADO`, `ERRO_INTERNO`.
 
-### Busca de anúncios
-
-```
-GET /api/v1/anuncios?q=calculadora&categoria=LIVROS&tipo=VENDA&condicao=SEMINOVO
-    &precoMin=10&precoMax=200&campus=PRINCIPAL&status=ATIVO
-    &page=0&size=20&sort=preco,asc;criadoEm,desc
-```
-
-- Filtros são combináveis e opcionais. Removidos (soft delete) nunca aparecem.
-- `sort` aceita apenas: `titulo`, `preco`, `categoria`, `condicao`, `tipo`, `status`,
-  `campus`, `criadoEm`, `atualizadoEm`; direção `asc` ou `desc`.
-  Múltiplos critérios são separados por `;`. Padrão: `criadoEm,desc`.
-- Exemplo Retrofit:
-
-```kotlin
-@GET("api/v1/anuncios")
-suspend fun buscar(
-    @Query("q") q: String? = null,
-    @Query("categoria") categoria: String? = null,
-    @Query("page") page: Int = 0,
-    @Query("size") size: Int = 20,
-    @Query("sort") sort: String = "criadoEm,desc"
-): PaginadoDTO<AnuncioResponse>
-```
-
----
-
-## 4. Upload de imagens
-
-```
-POST /api/v1/anuncios/{id}/imagens
-Authorization: Bearer <accessToken>
-Content-Type: multipart/form-data
-
-imagens: <arquivo 1>
-imagens: <arquivo 2>
-```
-
-- O nome do campo é **`imagens`** (repetível); envie de 1 a 5 arquivos por chamada.
-- Tipos aceitos: `image/jpeg`, `image/png`, `image/webp`. O **magic bytes** é validado,
-  então renomear um arquivo não funciona.
-- Tamanho máximo por arquivo: **2 MB**. Limites de infra: 10 MB por arquivo / 25 MB por requisição.
-- Cada anúncio aceita no máximo **5 imagens no total** (soma de todas as chamadas).
-- Somente o **dono** do anúncio pode enviar, listar ou remover imagens.
-- Resposta: `200 OK` com `[{ "id": "<uuid>", "url": "https://.../anuncios/<uuid>.jpg" }]`.
-- Em desenvolvimento sem `S3_BUCKET`, as URLs são locais (`/uploads/...`); em produção, URLs do S3.
-- Erros comuns: `400 IMAGEM_INVALIDA`, `400 REQUISICAO_INVALIDA` (campo ausente),
-  `403 ACESSO_NEGADO`, `404 NAO_ENCONTRADO`.
-
-Retrofit:
-
-```kotlin
-@Multipart
-@POST("api/v1/anuncios/{id}/imagens")
-suspend fun enviarImagens(
-    @Path("id") id: String,
-    @Part imagens: List<MultipartBody.Part>
-): List<ImagemResponse>
-```
-
-Ktor:
-
-```kotlin
-val body = MultiPartFormDataContent(formData {
-    files.forEach { file ->
-        append("imagens", file.name, ContentType.Application.OctetStream, file.readBytes())
-    }
-})
-client.post("http://localhost:8080/api/v1/anuncios/$id/imagens") { setBody(body) }
-```
-
-Para `ContentType`, use o MIME real da imagem (`image/jpeg`, `image/png`, `image/webp`).
-
----
-
-## 5. Erros
-
-Formato único para todas as respostas de erro:
+Erros de validação preenchem `erros`, por exemplo:
 
 ```json
 {
@@ -257,68 +60,278 @@ Formato único para todas as respostas de erro:
   "codigo": "VALIDACAO",
   "mensagem": "Erro de validação",
   "caminho": "/api/v1/anuncios",
+  "correlationId": "9f1c2f7e-6b0a-4f2e-9c66-3a1f0e2d4b11",
   "erros": [
     { "campo": "titulo", "mensagem": "O título é obrigatório" }
   ]
 }
 ```
 
-`timestamp` é ISO 8601 com offset. Trate pelo **`codigo`**, nunca pela mensagem
-(textos podem mudar). `erros` vem preenchido em erros de validação de corpo.
+## Rate limiting
 
-| HTTP | `codigo` | Quando |
-| --- | --- | --- |
-| 400 | `VALIDACAO` | Campo inválido no corpo (veja `erros`) |
-| 400 | `REQUISICAO_INVALIDA` | JSON malformado ou parte `imagens` ausente |
-| 400 | `PARAMETRO_INVALIDO` | Query/path inválido (ex.: `page=-1`, `sort` fora da whitelist) |
-| 400 | `PARAMETRO_OBRIGATORIO` | Query param obrigatório ausente |
-| 400 | `IMAGEM_INVALIDA` | Tipo/tamanho/conteúdo de imagem inválido |
-| 400 | `DOMINIO_INVALIDO` | E-mail não institucional |
-| 401 | `CREDENCIAIS_INVALIDAS` | Login inválido ou e-mail não verificado |
-| 401 | `TOKEN_INVALIDO` | Refresh inválido, expirado ou reutilizado |
-| 401 | `NAO_AUTENTICADO` | Falta Bearer token |
-| 403 | `ACESSO_NEGADO` | Usuário autenticado sem permissão (ex.: não dono, não ADMIN) |
-| 404 | `NAO_ENCONTRADO` | Recurso/rota inexistente |
-| 405 | `METODO_NAO_SUPORTADO` | Verbo HTTP inválido para a rota |
-| 409 | `CONFLITO` | Estado inválido (ex.: favorito duplicado, denúncia duplicada) |
-| 409 | `CONFLITO_DE_DADOS` | Violação de integridade no banco |
-| 429 | `LIMITE_EXCEDIDO` | Rate limit; ver header `Retry-After` |
-| 500 | `ERRO_INTERNO` | Erro inesperado (sem detalhes sensíveis) |
+Login e cadastro usam janela deslizante por IP **e** por e-mail. As rotas cobertas são:
 
-Exemplo de tratamento Retrofit:
+- `POST /api/v1/auth/login`
+- `POST /api/v1/usuarios/login` (alias legado)
+- `POST /api/v1/usuarios/cadastro`
 
-```kotlin
-sealed interface ApiError {
-    data class Http(val codigo: String, val mensagem: String, val status: Int) : ApiError
-    data object Rede : ApiError
-}
+Configuração: `RATE_LIMIT_LOGIN` (padrão 5), `RATE_LIMIT_CADASTRO` (padrão 3) e `RATE_LIMIT_JANELA` (padrão `PT1M`). Quando excedido, a resposta é `429` com `ErroResponse`, `codigo = LIMITE_EXCEDIDO` e header `Retry-After` em segundos.
 
-suspend fun <T> execute(chamada: suspend () -> T): T = try {
-    chamada()
-} catch (e: HttpException) {
-    val erro = e.response()?.errorBody()?.string()
-        ?.let { Json.decodeFromString<ErroResponse>(it) }
-    throw ApiException(ApiError.Http(erro?.codigo ?: "ERRO_INTERNO",
-        erro?.mensagem ?: "Erro desconhecido", e.code()))
-} catch (e: IOException) {
-    throw ApiException(ApiError.Rede)
+O limite por IP usa `request.getRemoteAddr()`; `X-Forwarded-For` fornecido pelo cliente não é aceito. Os contadores ficam em memória, por instância da aplicação — atrás de balanceador, cada réplica tem seu próprio contador.
+
+## Cadastro, verificação e papéis
+
+- O cadastro aceita somente domínios configurados em `EMAIL_DOMINIOS_INSTITUCIONAIS` (padrão `edu.br,edu,ac.br`).
+- Para evitar enumeração, `POST /cadastro` sempre responde `200` com a mesma mensagem, mesmo para e-mail já cadastrado.
+- Login exige e-mail verificado.
+- Roles: `USUARIO` (padrão) e `ADMIN`.
+- Não existe endpoint público para criar/promover ADMIN. Defina `ADMIN_BOOTSTRAP_EMAIL` com o e-mail de uma conta **já cadastrada e verificada** e reinicie a aplicação: a promoção ocorre somente na inicialização. Rotas administrativas também têm `@PreAuthorize("hasRole('ADMIN')")`.
+
+## Paginação
+
+Envelope retornado por buscas paginadas:
+
+```json
+{
+  "content": [],
+  "page": 0,
+  "size": 20,
+  "totalElements": 0,
+  "totalPages": 0,
+  "first": true,
+  "last": true
 }
 ```
 
+## Enums
+
+- `Categoria`: `LIVROS`, `ELETRONICOS`, `ENGENHARIA`, `COMPUTACAO`, `MOVEIS`, `VESTUARIO`, `PAPELARIA`, `OUTROS`
+- `TipoAnuncio`: `VENDA`, `DOACAO`
+- `Condicao`: `NOVO`, `SEMINOVO`, `USADO`
+- `StatusAnuncio`: `ATIVO`, `RESERVADO`, `VENDIDO`, `DOADO`, `REMOVIDO`
+- `StatusDenuncia`: `PENDENTE`, `RESOLVIDA`, `REJEITADA`
+
 ---
 
-## 6. Outros endpoints
+# Endpoints
 
-- Anúncios: `POST/PATCH/PUT/DELETE /api/v1/anuncios/{id}`, `GET /api/v1/anuncios/{id}`,
-  `GET /api/v1/anuncios/categoria/{categoria}`.
-- Favoritos: `POST/DELETE /api/v1/anuncios/{id}/favoritos`, `GET /api/v1/usuarios/me/favoritos`.
-- Perfil: `GET/PATCH /api/v1/usuarios/me`, `GET /api/v1/usuarios/me/anuncios`.
-- Mensagens: `POST/GET /api/v1/anuncios/{id}/mensagens`, `PATCH /api/v1/mensagens/{id}/lida`.
-- Negociação: `POST/DELETE /api/v1/anuncios/{id}/reserva`, `POST /api/v1/anuncios/{id}/conclusao`,
-  `POST /api/v1/anuncios/{id}/avaliacoes`, `GET /api/v1/usuarios/{id}/avaliacoes`.
-- Denúncias: `POST /api/v1/anuncios/{id}/denuncias`.
-- Moderação (ADMIN): `/api/v1/admin/**`.
-- Notificações: `GET /api/v1/notificacoes`, `GET /nao-lidas`, `PATCH /{id}/lida`,
-  `POST/DELETE /api/v1/notificacoes/dispositivo` (token FCM).
+## Autenticação (`/auth`)
 
-Consulte o `openapi.json` para payloads, exemplos e códigos de resposta de cada operação.
+| Método | Rota | Auth | Exemplo | Resposta |
+|---|---|---|---|---|
+| POST | `/auth/login` | Pública, limitada | `curl -X POST "$BASE/auth/login" -H 'Content-Type: application/json' -d '{"email":"aluno@universidade.edu.br","senha":"Senha@12345"}'` | `200` `TokenResponseDTO` |
+| POST | `/auth/refresh` | Pública | `curl -X POST "$BASE/auth/refresh" -H 'Content-Type: application/json' -d '{"refreshToken":"<refresh>"}'` | `200` novos tokens; `401` se inválido/reutilizado |
+| POST | `/auth/logout` | Bearer | `curl -X POST "$BASE/auth/logout" -H "$AUTH"` | `204`; revoga a família de refresh tokens |
+
+`TokenResponseDTO`:
+
+```json
+{
+  "accessToken": "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJhbHVub0B1bml2ZXJzaWRhZGUuZWR1LmJyIn0.exemplo",
+  "refreshToken": "eyJhbGciOiJIUzI1NiJ9.eyJ0aXBvIjoicmVmcmVzaCJ9.exemplo",
+  "tipo": "Bearer",
+  "expiresIn": 900
+}
+```
+
+## Usuários (`/usuarios`)
+
+| Método | Rota | Auth | Exemplo | Resposta |
+|---|---|---|---|---|
+| POST | `/usuarios/cadastro` | Pública, limitada | `curl -X POST "$BASE/usuarios/cadastro" -H 'Content-Type: application/json' -d '{"nome":"Maria Almeida","email":"maria@universidade.edu.br","senha":"Senha@12345"}'` | `200` `{"mensagem":"Se o e-mail for elegível, enviamos instruções para concluir o cadastro"}` |
+| POST | `/usuarios/verificar-email` | Pública | `curl -X POST "$BASE/usuarios/verificar-email" -H 'Content-Type: application/json' -d '{"token":"<token do e-mail>"}'` | `204` |
+| POST | `/usuarios/reenviar-verificacao` | Pública | `curl -X POST "$BASE/usuarios/reenviar-verificacao" -H 'Content-Type: application/json' -d '{"email":"maria@universidade.edu.br"}'` | `202` |
+| POST | `/usuarios/recuperar-senha` | Pública | `curl -X POST "$BASE/usuarios/recuperar-senha" -H 'Content-Type: application/json' -d '{"email":"maria@universidade.edu.br"}'` | `202` |
+| POST | `/usuarios/redefinir-senha` | Pública | `curl -X POST "$BASE/usuarios/redefinir-senha" -H 'Content-Type: application/json' -d '{"token":"<token>","novaSenha":"Nova@Senha123"}'` | `204` |
+| POST | `/usuarios/login` | Pública, limitada | `curl -X POST "$BASE/usuarios/login" -H 'Content-Type: application/json' -d '{"email":"aluno@universidade.edu.br","senha":"Senha@12345"}'` | `200` `TokenResponseDTO` (alias legado de `/auth/login`) |
+
+## Perfil (`/usuarios/me`)
+
+| Método | Rota | Auth | Exemplo | Resposta |
+|---|---|---|---|---|
+| GET | `/usuarios/me` | Bearer | `curl "$BASE/usuarios/me" -H "$AUTH"` | `200` `PerfilResponseDTO` |
+| PATCH | `/usuarios/me` | Bearer | `curl -X PATCH "$BASE/usuarios/me" -H "$AUTH" -H 'Content-Type: application/json' -d '{"nome":"Maria Almeida"}'` | `200` perfil atualizado (somente `nome` é editável) |
+| GET | `/usuarios/me/anuncios` | Bearer | `curl "$BASE/usuarios/me/anuncios?status=ATIVO&incluirRemovidos=false&page=0&size=20" -H "$AUTH"` | `200` `PaginadoDTO<AnuncioResponseDTO>` |
+
+`PerfilResponseDTO`:
+
+```json
+{
+  "id": "11111111-1111-1111-1111-111111111111",
+  "nome": "Maria Almeida",
+  "email": "maria@universidade.edu.br",
+  "role": "USUARIO",
+  "emailVerificado": true,
+  "criadoEm": "2026-11-22T16:00:00Z",
+  "totalAnuncios": 3,
+  "anunciosAtivos": 2,
+  "favoritos": 1
+}
+```
+
+## Anúncios (`/anuncios`)
+
+| Método | Rota | Auth | Exemplo | Resposta |
+|---|---|---|---|---|
+| POST | `/anuncios` | Bearer | `curl -X POST "$BASE/anuncios" -H "$AUTH" -H 'Content-Type: application/json' -d '{"titulo":"Calculadora científica","preco":80.00,"descricao":"Pouco usada","categoria":"ELETRONICOS","tipo":"VENDA","condicao":"USADO","campus":"PRINCIPAL","localRetirada":"A combinar","contato":"WhatsApp 99999-9999"}'` | `200` `AnuncioResponseDTO`, status inicial `ATIVO` |
+| GET | `/anuncios` | Pública | `curl "$BASE/anuncios?q=calculadora&categoria=ELETRONICOS&precoMin=10&precoMax=100&page=0&size=20&sort=preco,asc;criadoEm,desc"` | `200` `PaginadoDTO<AnuncioResponseDTO>` |
+| GET | `/anuncios/{id}` | Pública | `curl "$BASE/anuncios/$ID"` | `200` `AnuncioResponseDTO`; `404` se removido |
+| GET | `/anuncios/categoria/{categoria}` | Pública | `curl "$BASE/anuncios/categoria/LIVROS"` | `200` lista de `AnuncioResponseDTO` |
+| PUT | `/anuncios/{id}` | Bearer, dono | `curl -X PUT "$BASE/anuncios/$ID" -H "$AUTH" -H 'Content-Type: application/json' -d '{"titulo":"Calculadora","preco":70.00,"categoria":"ELETRONICOS"}'` | `200` anúncio atualizado; `403` se não for dono |
+| PATCH | `/anuncios/{id}` | Bearer, dono | `curl -X PATCH "$BASE/anuncios/$ID" -H "$AUTH" -H 'Content-Type: application/json' -d '{"preco":65.00}'` | `200` anúncio atualizado |
+| DELETE | `/anuncios/{id}` | Bearer, dono | `curl -X DELETE "$BASE/anuncios/$ID" -H "$AUTH"` | `204`; soft delete (`status=REMOVIDO`) |
+| POST | `/anuncios/{id}/imagens` | Bearer, dono | `curl -X POST "$BASE/anuncios/$ID/imagens" -H "$AUTH" -F 'imagens=@foto1.jpg' -F 'imagens=@foto2.png'` | `200` `[{"id":"...","url":"/uploads/anuncios/..."}]` |
+| GET | `/anuncios/{id}/imagens` | Bearer, dono | `curl "$BASE/anuncios/$ID/imagens" -H "$AUTH"` | `200` lista de `ImagemResponseDTO` |
+| DELETE | `/anuncios/{id}/imagens/{imagemId}` | Bearer, dono | `curl -X DELETE "$BASE/anuncios/$ID/imagens/22222222-2222-2222-2222-222222222222" -H "$AUTH"` | `204` |
+
+Defaults na criação: `tipo=VENDA`, `condicao=USADO`, `campus=PRINCIPAL`, `localRetirada="A combinar"`. Imagens aceitas: JPEG/PNG/WebP, até `STORAGE_MAX_IMAGENS` (padrão 5) por anúncio e `STORAGE_MAX_TAMANHO` (padrão 2MB) por arquivo; magic bytes são validados. O campo legado `imagem` não é sincronizado com o upload.
+
+`AnuncioResponseDTO` (resumo):
+
+```json
+{
+  "id": "11111111-1111-1111-1111-111111111111",
+  "titulo": "Calculadora científica",
+  "preco": 80.00,
+  "descricao": "Pouco usada",
+  "imagem": null,
+  "categoria": "ELETRONICOS",
+  "contato": "WhatsApp 99999-9999",
+  "moderado": false,
+  "tipo": "VENDA",
+  "condicao": "USADO",
+  "status": "ATIVO",
+  "campus": "PRINCIPAL",
+  "localRetirada": "A combinar",
+  "criadoEm": "2026-11-22T16:00:00Z",
+  "atualizadoEm": "2026-11-22T16:00:00Z",
+  "imagens": []
+}
+```
+
+## Favoritos
+
+| Método | Rota | Auth | Exemplo | Resposta |
+|---|---|---|---|---|
+| POST | `/anuncios/{id}/favoritos` | Bearer | `curl -X POST "$BASE/anuncios/$ID/favoritos" -H "$AUTH"` | `200` `{"anuncioId":"...","favorito":true}`; idempotente |
+| DELETE | `/anuncios/{id}/favoritos` | Bearer | `curl -X DELETE "$BASE/anuncios/$ID/favoritos" -H "$AUTH"` | `204` |
+| GET | `/usuarios/me/favoritos` | Bearer | `curl "$BASE/usuarios/me/favoritos?page=0&size=20" -H "$AUTH"` | `200` `PaginadoDTO<AnuncioResponseDTO>` |
+
+Favoritar o próprio anúncio é permitido. Não há endpoint para consultar o estado de um favorito específico.
+
+## Mensagens
+
+| Método | Rota | Auth | Exemplo | Resposta |
+|---|---|---|---|---|
+| POST | `/anuncios/{id}/mensagens` | Bearer | `curl -X POST "$BASE/anuncios/$ID/mensagens" -H "$AUTH" -H 'Content-Type: application/json' -d '{"conteudo":"Ainda está disponível?"}'` | `201` `MensagemResponseDTO` |
+| GET | `/anuncios/{id}/mensagens` | Bearer | `curl "$BASE/anuncios/$ID/mensagens?compradorId=33333333-3333-3333-3333-333333333333" -H "$AUTH"` | `200` lista de mensagens da conversa |
+| PATCH | `/mensagens/{id}/lida` | Bearer, destinatário | `curl -X PATCH "$BASE/mensagens/44444444-4444-4444-4444-444444444444/lida" -H "$AUTH"` | `200` mensagem com `lidaEm` preenchido |
+
+`destinatarioId` no POST é obrigatório apenas quando o remetente é o vendedor; quando o remetente é o comprador, a mensagem vai para o vendedor do anúncio. Terceiros recebem `403` na listagem. O histórico não é paginado.
+
+`MensagemResponseDTO`:
+
+```json
+{
+  "id": "44444444-4444-4444-4444-444444444444",
+  "anuncioId": "11111111-1111-1111-1111-111111111111",
+  "remetenteId": "33333333-3333-3333-3333-333333333333",
+  "remetenteNome": "João Silva",
+  "destinatarioId": "55555555-5555-5555-5555-555555555555",
+  "conteudo": "Ainda está disponível?",
+  "criadoEm": "2026-11-22T16:00:00Z",
+  "lidaEm": null
+}
+```
+
+## Reservas, conclusão e avaliações
+
+| Método | Rota | Auth | Exemplo | Resposta |
+|---|---|---|---|---|
+| POST | `/anuncios/{id}/reserva` | Bearer, comprador | `curl -X POST "$BASE/anuncios/$ID/reserva" -H "$AUTH"` | `200` anúncio com `status=RESERVADO`; `409` se já reservado por outro comprador |
+| DELETE | `/anuncios/{id}/reserva` | Bearer, comprador/vendedor | `curl -X DELETE "$BASE/anuncios/$ID/reserva" -H "$AUTH"` | `200` anúncio volta para `ATIVO` |
+| POST | `/anuncios/{id}/conclusao` | Bearer, vendedor | `curl -X POST "$BASE/anuncios/$ID/conclusao" -H "$AUTH"` | `200` `VENDIDO` ou `DOADO` conforme `tipo` |
+| POST | `/anuncios/{id}/avaliacoes` | Bearer, comprador da reserva concluída | `curl -X POST "$BASE/anuncios/$ID/avaliacoes" -H "$AUTH" -H 'Content-Type: application/json' -d '{"nota":5,"comentario":"Transação tranquila"}'` | `200` `AvaliacaoResponseDTO` (upsert por anúncio/avaliador) |
+| GET | `/usuarios/{id}/avaliacoes` | Bearer | `curl "$BASE/usuarios/55555555-5555-5555-5555-555555555555/avaliacoes" -H "$AUTH"` | `200` `{"media":4.5,"total":2,"avaliacoes":[...]}` |
+
+Não há GET/histórico de reservas nem expiração automática de reserva. A avaliação é apenas comprador → vendedor.
+
+## Denúncias
+
+| Método | Rota | Auth | Exemplo | Resposta |
+|---|---|---|---|---|
+| POST | `/anuncios/{id}/denuncias` | Bearer | `curl -X POST "$BASE/anuncios/$ID/denuncias" -H "$AUTH" -H 'Content-Type: application/json' -d '{"motivo":"Fraude","descricao":"Anúncio duplicado suspeito"}'` | `201` `DenunciaResponseDTO` com `status=PENDENTE` |
+
+Não denunciar próprio anúncio (`400`); duplicata pendente retorna `409`. `motivo` é texto livre (até 50 caracteres). Não há listagem de denúncias pelo denunciante; a listagem/resolução é administrativa.
+
+## Notificações e FCM
+
+| Método | Rota | Auth | Exemplo | Resposta |
+|---|---|---|---|---|
+| GET | `/notificacoes` | Bearer | `curl "$BASE/notificacoes?page=0&size=20" -H "$AUTH"` | `200` `PaginadoDTO<NotificacaoResponseDTO>` |
+| GET | `/notificacoes/nao-lidas` | Bearer | `curl "$BASE/notificacoes/nao-lidas" -H "$AUTH"` | `200` `{"total":3}` |
+| PATCH | `/notificacoes/{id}/lida` | Bearer, destinatário | `curl -X PATCH "$BASE/notificacoes/66666666-6666-6666-6666-666666666666/lida" -H "$AUTH"` | `200` notificação com `lidaEm` |
+| POST | `/notificacoes/dispositivo` | Bearer | `curl -X POST "$BASE/notificacoes/dispositivo" -H "$AUTH" -H 'Content-Type: application/json' -d '{"token":"token-fcm-do-dispositivo"}'` | `201` vazio |
+| DELETE | `/notificacoes/dispositivo` | Bearer | `curl -X DELETE "$BASE/notificacoes/dispositivo" -H "$AUTH" -H 'Content-Type: application/json' -d '{"token":"token-fcm-do-dispositivo"}'` | `204` |
+
+Tipos produzidos: `MENSAGEM`, `RESERVA`, `CONCLUSAO`, `AVALIACAO`, `DENUNCIA`. O token FCM nunca é devolvido pela API. Sem `FCM_CREDENTIALS`, as notificações ficam apenas no banco (`LocalNotificadorPush`).
+
+`NotificacaoResponseDTO`:
+
+```json
+{
+  "id": "66666666-6666-6666-6666-666666666666",
+  "titulo": "Nova mensagem",
+  "mensagem": "Você recebeu uma mensagem sobre um anúncio",
+  "tipo": "MENSAGEM",
+  "referenciaId": "11111111-1111-1111-1111-111111111111",
+  "criadoEm": "2026-11-22T16:00:00Z",
+  "lidaEm": null
+}
+```
+
+## Administração (`/admin`, somente ADMIN)
+
+Todas as rotas exigem `ROLE_ADMIN` no filtro HTTP e também `@PreAuthorize("hasRole('ADMIN')")`.
+
+| Método | Rota | Exemplo | Resposta |
+|---|---|---|---|
+| PATCH | `/admin/anuncios/{id}/moderacao` | `curl -X PATCH "$BASE/admin/anuncios/$ID/moderacao" -H "$AUTH" -H 'Content-Type: application/json' -d '{"moderado":true}'` | `200` anúncio com flag `moderado` |
+| DELETE | `/admin/anuncios/{id}` | `curl -X DELETE "$BASE/admin/anuncios/$ID" -H "$AUTH"` | `204`; soft delete por moderação |
+| GET | `/admin/denuncias` | `curl "$BASE/admin/denuncias?status=PENDENTE&page=0&size=20" -H "$AUTH"` | `200` `PaginadoDTO<DenunciaResponseDTO>` |
+| POST | `/admin/denuncias/{id}/resolucao` | `curl -X POST "$BASE/admin/denuncias/77777777-7777-7777-7777-777777777777/resolucao" -H "$AUTH" -H 'Content-Type: application/json' -d '{"status":"RESOLVIDA","removerAnuncio":true}'` | `200` denúncia resolvida |
+
+`DenunciaResponseDTO`:
+
+```json
+{
+  "id": "77777777-7777-7777-7777-777777777777",
+  "anuncioId": "11111111-1111-1111-1111-111111111111",
+  "denuncianteId": "33333333-3333-3333-3333-333333333333",
+  "motivo": "Fraude",
+  "descricao": "Anúncio duplicado suspeito",
+  "status": "RESOLVIDA",
+  "resolvidaEm": "2026-11-22T16:10:00Z",
+  "criadoEm": "2026-11-22T16:00:00Z"
+}
+```
+
+A flag `moderado` está no response, mas não remove anúncio da busca; para isso use `DELETE /admin/anuncios/{id}` ou `removerAnuncio=true` na resolução.
+
+---
+
+## Endpoints fora de `/api/v1`
+
+| Método | Rota | Auth | Exemplo | Resposta |
+|---|---|---|---|---|
+| GET | `/healthz` | Pública | `curl https://seu-host/healthz` | `200` `{"status":"ok"}` (não consulta dependências) |
+| GET | `/actuator/health` | Pública | `curl https://seu-host/actuator/health` | `200` health completo |
+| GET | `/actuator/health/liveness` | Pública | `curl https://seu-host/actuator/health/liveness` | `200` liveness |
+| GET | `/actuator/info` | Pública | `curl https://seu-host/actuator/info` | `200` metadados da app |
+| GET | `/actuator/metrics` | Pública | `curl https://seu-host/actuator/metrics` | `200` nomes de métricas |
+| GET | `/v3/api-docs` | Pública | `curl https://seu-host/v3/api-docs` | `200` OpenAPI JSON canônico |
+| GET | `/openapi.json` | Pública | `curl https://seu-host/openapi.json` | `200` alias do documento OpenAPI |
+| GET | `/swagger-ui.html` | Pública | abrir no navegador | UI do Swagger |
+| GET | `/uploads/**` | Pública | `curl https://seu-host/uploads/anuncios/foto.jpg` | arquivo de imagem local |
+
+Somente `health`, `info` e `metrics` são expostos pelo Actuator. O CSP permite `self`, `script-src`, `style-src` e `connect-src` necessários ao Swagger UI, mantendo `frame-ancestors 'none'`.
