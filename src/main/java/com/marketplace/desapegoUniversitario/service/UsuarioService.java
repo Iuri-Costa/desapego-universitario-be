@@ -5,7 +5,6 @@ import com.marketplace.desapegoUniversitario.domain.Usuario;
 import com.marketplace.desapegoUniversitario.dto.CadastroDTO;
 import com.marketplace.desapegoUniversitario.dto.RedefinirSenhaDTO;
 import com.marketplace.desapegoUniversitario.dto.UsuarioResponseDTO;
-import com.marketplace.desapegoUniversitario.exception.ConflitoException;
 import com.marketplace.desapegoUniversitario.exception.RecursoNaoEncontradoException;
 import com.marketplace.desapegoUniversitario.mapper.UsuarioMapper;
 import com.marketplace.desapegoUniversitario.repository.RefreshTokenRepository;
@@ -44,17 +43,19 @@ public class UsuarioService {
     }
 
     @Transactional
-    public UsuarioResponseDTO cadastrar(CadastroDTO dto) {
+    public void cadastrar(CadastroDTO dto) {
         String email = normalizar(dto.email());
         if (usuarioRepository.existsByEmail(email)) {
-            throw new ConflitoException("Já existe um usuário cadastrado com este e-mail");
+            emailSender.enviar(email, "Tentativa de cadastro",
+                    "Recebemos uma solicitação de cadastro para este e-mail. "
+                            + "Se não foi você, ignore esta mensagem: " + frontendUrl);
+            return;
         }
 
         Usuario usuario = UsuarioMapper.toEntity(dto, passwordEncoder.encode(dto.senha()));
         usuario.setEmail(email);
         usuarioRepository.save(usuario);
         enviarVerificacao(usuario);
-        return UsuarioMapper.toResponse(usuario);
     }
 
     @Transactional

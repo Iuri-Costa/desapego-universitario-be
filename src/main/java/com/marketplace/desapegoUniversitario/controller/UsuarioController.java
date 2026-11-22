@@ -2,11 +2,11 @@ package com.marketplace.desapegoUniversitario.controller;
 
 import com.marketplace.desapegoUniversitario.dto.CadastroDTO;
 import com.marketplace.desapegoUniversitario.dto.LoginDTO;
+import com.marketplace.desapegoUniversitario.dto.MensagemDTO;
 import com.marketplace.desapegoUniversitario.dto.RedefinirSenhaDTO;
 import com.marketplace.desapegoUniversitario.dto.RecuperarSenhaDTO;
 import com.marketplace.desapegoUniversitario.dto.TokenEmailDTO;
 import com.marketplace.desapegoUniversitario.dto.TokenResponseDTO;
-import com.marketplace.desapegoUniversitario.dto.UsuarioResponseDTO;
 import com.marketplace.desapegoUniversitario.service.AutenticacaoService;
 import com.marketplace.desapegoUniversitario.service.UsuarioService;
 import jakarta.validation.Valid;
@@ -29,8 +29,9 @@ public class UsuarioController {
     }
 
     @PostMapping("/cadastro")
-    public UsuarioResponseDTO cadastrar(@Valid @RequestBody CadastroDTO dto) {
-        return usuarioService.cadastrar(dto);
+    public MensagemDTO cadastrar(@Valid @RequestBody CadastroDTO dto) {
+        usuarioService.cadastrar(dto);
+        return new MensagemDTO("Se o e-mail for elegível, enviamos instruções para concluir o cadastro");
     }
 
     @PostMapping("/login")
