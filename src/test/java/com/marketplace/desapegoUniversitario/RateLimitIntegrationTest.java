@@ -59,6 +59,7 @@ class RateLimitIntegrationTest {
                 .andExpect(jsonPath("$.codigo").value("LIMITE_EXCEDIDO"))
                 .andExpect(jsonPath("$.caminho").value("/api/v1/usuarios/login"))
                 .andExpect(jsonPath("$.timestamp").exists())
+                .andExpect(jsonPath("$.correlationId").exists())
                 .andExpect(header().string("Retry-After", "60"));
     }
 
@@ -119,7 +120,9 @@ class RateLimitIntegrationTest {
                                 """.formatted(email)))
                 .andExpect(status().isTooManyRequests())
                 .andExpect(jsonPath("$.codigo").value("LIMITE_EXCEDIDO"))
-                .andExpect(jsonPath("$.caminho").value("/api/v1/auth/login"));
+                .andExpect(jsonPath("$.caminho").value("/api/v1/auth/login"))
+                .andExpect(jsonPath("$.correlationId").exists())
+                .andExpect(header().string("Retry-After", "60"));
     }
 
     @Test

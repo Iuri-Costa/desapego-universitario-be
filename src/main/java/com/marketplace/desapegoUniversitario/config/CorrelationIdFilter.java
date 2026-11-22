@@ -19,19 +19,30 @@ public class CorrelationIdFilter extends OncePerRequestFilter {
 
     public static final String HEADER = "X-Correlation-Id";
     public static final String MDC_KEY = "correlationId";
+    private static final String ATRIBUTO = CorrelationIdFilter.class.getName() + ".ID";
     private static final int TAMANHO_MAXIMO = 64;
     private static final String VALIDO = "[A-Za-z0-9._-]+";
+
+    public static String obter(HttpServletRequest request) {
+        Object valor = request.getAttribute(ATRIBUTO);
+        if (valor instanceof String texto && !texto.isBlank()) {
+            return texto;
+        }
+        String cabecalho = request.getHeader(HEADER);
+        if (cabecalho != null && !cabecalho.isBlank()
+                && cabecalho.length() <= TAMANHO_MAXIMO && cabecalho.matches(VALIDO)) {
+            return cabecalho;
+        }
+        String gerado = UUID.randomUUID().toString();
+        request.setAttribute(ATRIBUTO, gerado);
+        return gerado;
+    }
 
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response,
                                     FilterChain filterChain) throws ServletException, IOException {
-        String correlationId = request.getHeader(HEADER);
-        if (correlationId == null || correlationId.isBlank()
-                || correlationId.length() > TAMANHO_MAXIMO
-                || !correlationId.matches(VALIDO)) {
-            correlationId = UUID.randomUUID().toString();
-        }
-
+        String correlationId = obter(request);
+        request.setAttribute(ATRIBUTO, correlationId);
         MDC.put(MDC_KEY, correlationId);
         response.setHeader(HEADER, correlationId);
         try {

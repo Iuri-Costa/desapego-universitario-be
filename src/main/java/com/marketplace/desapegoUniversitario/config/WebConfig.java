@@ -42,8 +42,8 @@ public class WebConfig implements WebMvcConfigurer {
         CorsConfiguration configuracao = new CorsConfiguration();
         configuracao.setAllowedOrigins(allowedOrigins);
         configuracao.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
-        configuracao.setAllowedHeaders(List.of("Authorization", "Content-Type"));
-        configuracao.setExposedHeaders(List.of("Retry-After"));
+        configuracao.setAllowedHeaders(List.of("Authorization", "Content-Type", "X-Correlation-Id"));
+        configuracao.setExposedHeaders(List.of("Retry-After", "X-Correlation-Id"));
         configuracao.setAllowCredentials(false);
         configuracao.setMaxAge(3600L);
 

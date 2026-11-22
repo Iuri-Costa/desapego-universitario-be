@@ -21,6 +21,9 @@ public record ErroResponse(
         @Schema(example = "/api/v1/anuncios")
         String caminho,
 
+        @Schema(description = "Identificador de correlação da requisição", example = "9f1c2f7e-6b0a-4f2e-9c66-3a1f0e2d4b11")
+        String correlationId,
+
         List<ErroCampo> erros
 ) {
 }

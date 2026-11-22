@@ -20,7 +20,7 @@ import java.io.IOException;
 import java.util.Map;
 
 @Component
-@Order(Ordered.HIGHEST_PRECEDENCE)
+@Order(Ordered.HIGHEST_PRECEDENCE + 10)
 public class RateLimitFilter extends OncePerRequestFilter {
 
     private static final Map<String, LimitadorRequisicoes.Tipo> ROTAS = Map.of(

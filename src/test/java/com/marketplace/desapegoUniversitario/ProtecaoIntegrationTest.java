@@ -39,6 +39,28 @@ class ProtecaoIntegrationTest {
     }
 
     @Test
+    void corsDevePermitirEExporCorrelationId() throws Exception {
+        mockMvc.perform(options("/api/v1/usuarios/login")
+                        .header(HttpHeaders.ORIGIN, "http://localhost:5173")
+                        .header(HttpHeaders.ACCESS_CONTROL_REQUEST_METHOD, "POST")
+                        .header(HttpHeaders.ACCESS_CONTROL_REQUEST_HEADERS, "X-Correlation-Id"))
+                .andExpect(status().isOk())
+                .andExpect(header().string(HttpHeaders.ACCESS_CONTROL_ALLOW_HEADERS,
+                        org.hamcrest.Matchers.containsString("X-Correlation-Id")))
+                .andExpect(header().string(HttpHeaders.ACCESS_CONTROL_EXPOSE_HEADERS,
+                        org.hamcrest.Matchers.containsString("X-Correlation-Id")));
+    }
+
+    @Test
+    void errosDevemIncluirCorrelationId() throws Exception {
+        mockMvc.perform(get("/api/v1/usuarios/me")
+                        .header("X-Correlation-Id", "correlacao-123"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.correlationId").value("correlacao-123"))
+                .andExpect(header().string("X-Correlation-Id", "correlacao-123"));
+    }
+
+    @Test
     void respostasDevemConterHeadersDeSeguranca() throws Exception {
         mockMvc.perform(get("/api/v1/anuncios"))
                 .andExpect(status().isOk())

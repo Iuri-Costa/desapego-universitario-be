@@ -1,5 +1,6 @@
 package com.marketplace.desapegoUniversitario.exception;
 
+import com.marketplace.desapegoUniversitario.config.CorrelationIdFilter;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
@@ -18,6 +19,7 @@ public class ErroResponseFactory {
                 codigo,
                 mensagem,
                 request.getRequestURI(),
+                CorrelationIdFilter.obter(request),
                 erros == null ? List.of() : erros);
     }
 }
