@@ -42,6 +42,10 @@ class MensagemIntegrationTest {
         String comprador = TestAutenticacao.login(mockMvc, emailComprador);
         UUID compradorId = usuarioRepository.findByEmail(emailComprador).orElseThrow().getId();
 
+        mockMvc.perform(post("/api/v1/anuncios/{id}/reserva", anuncioId)
+                        .header("Authorization", "Bearer " + comprador))
+                .andExpect(status().isOk());
+
         String primeira = mockMvc.perform(post("/api/v1/anuncios/{id}/mensagens", anuncioId)
                         .header("Authorization", "Bearer " + comprador)
                         .contentType(MediaType.APPLICATION_JSON)
@@ -95,6 +99,10 @@ class MensagemIntegrationTest {
         UUID anuncioId = TestAutenticacao.criarAnuncio(mockMvc, vendedor);
         UUID compradorId = usuarioRepository.findByEmail(emailComprador).orElseThrow().getId();
 
+        mockMvc.perform(post("/api/v1/anuncios/{id}/reserva", anuncioId)
+                        .header("Authorization", "Bearer " + comprador))
+                .andExpect(status().isOk());
+
         mockMvc.perform(get("/api/v1/anuncios/{id}/mensagens", anuncioId)
                         .header("Authorization", "Bearer " + terceiro)
                         .param("compradorId", compradorId.toString()))
@@ -141,6 +149,77 @@ class MensagemIntegrationTest {
     }
 
     @Test
+    void somenteCompradorEVendedorPodemEnviarMensagens() throws Exception {
+        String vendedor = TestAutenticacao.cadastrarELogar(mockMvc);
+        String emailTerceiro = TestAutenticacao.novoEmail();
+        TestAutenticacao.cadastrar(mockMvc, emailTerceiro);
+        String terceiro = TestAutenticacao.login(mockMvc, emailTerceiro);
+        UUID terceiroId = usuarioRepository.findByEmail(emailTerceiro).orElseThrow().getId();
+        UUID anuncioId = TestAutenticacao.criarAnuncio(mockMvc, vendedor);
+
+        mockMvc.perform(post("/api/v1/anuncios/{id}/mensagens", anuncioId)
+                        .header("Authorization", "Bearer " + terceiro)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"conteudo\":\"Oi\"}"))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.codigo").value("ACESSO_NEGADO"));
+
+        mockMvc.perform(post("/api/v1/anuncios/{id}/mensagens", anuncioId)
+                        .header("Authorization", "Bearer " + vendedor)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"destinatarioId\":\"" + terceiroId + "\",\"conteudo\":\"Oi\"}"))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.codigo").value("ACESSO_NEGADO"));
+    }
+
+    @Test
+    void listagemDeConversasDeveMostrarApenasConversasDoUsuario() throws Exception {
+        String emailVendedor = TestAutenticacao.novoEmail();
+        TestAutenticacao.cadastrar(mockMvc, emailVendedor);
+        String vendedor = TestAutenticacao.login(mockMvc, emailVendedor);
+        UUID vendedorId = usuarioRepository.findByEmail(emailVendedor).orElseThrow().getId();
+        UUID anuncioId = TestAutenticacao.criarAnuncio(mockMvc, vendedor);
+
+        String emailComprador = TestAutenticacao.novoEmail();
+        TestAutenticacao.cadastrar(mockMvc, emailComprador);
+        String comprador = TestAutenticacao.login(mockMvc, emailComprador);
+        UUID compradorId = usuarioRepository.findByEmail(emailComprador).orElseThrow().getId();
+        String terceiro = TestAutenticacao.cadastrarELogar(mockMvc);
+
+        mockMvc.perform(post("/api/v1/anuncios/{id}/reserva", anuncioId)
+                        .header("Authorization", "Bearer " + comprador))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(post("/api/v1/anuncios/{id}/mensagens", anuncioId)
+                        .header("Authorization", "Bearer " + comprador)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"conteudo\":\"Ainda está disponível?\"}"))
+                .andExpect(status().isCreated());
+
+        mockMvc.perform(get("/api/v1/mensagens/conversas")
+                        .header("Authorization", "Bearer " + comprador))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(1))
+                .andExpect(jsonPath("$[0].anuncioId").value(anuncioId.toString()))
+                .andExpect(jsonPath("$[0].compradorId").value(compradorId.toString()))
+                .andExpect(jsonPath("$[0].vendedorId").value(vendedorId.toString()))
+                .andExpect(jsonPath("$[0].ultimaMensagem").value("Ainda está disponível?"))
+                .andExpect(jsonPath("$[0].mensagensNaoLidas").value(0));
+
+        mockMvc.perform(get("/api/v1/usuarios/me/conversas")
+                        .header("Authorization", "Bearer " + vendedor))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(1))
+                .andExpect(jsonPath("$[0].compradorId").value(compradorId.toString()))
+                .andExpect(jsonPath("$[0].mensagensNaoLidas").value(1));
+
+        mockMvc.perform(get("/api/v1/mensagens/conversas")
+                        .header("Authorization", "Bearer " + terceiro))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(0));
+    }
+
+    @Test
     void mensagensDevemExigirAutenticacao() throws Exception {
         mockMvc.perform(post("/api/v1/anuncios/{id}/mensagens", UUID.randomUUID())
                         .contentType(MediaType.APPLICATION_JSON)
@@ -148,5 +227,8 @@ class MensagemIntegrationTest {
                 .andExpect(status().isUnauthorized());
         mockMvc.perform(get("/api/v1/anuncios/{id}/mensagens", UUID.randomUUID()))
                 .andExpect(status().isUnauthorized());
+        mockMvc.perform(get("/api/v1/mensagens/conversas"))
+                .andExpect(status().isUnauthorized());
     }
+
 }

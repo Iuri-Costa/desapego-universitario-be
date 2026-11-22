@@ -399,7 +399,8 @@ Documentação completa, payloads e códigos de resposta em [docs/API.md](docs/A
 | --- | --- | --- |
 | POST / DELETE | `/api/v1/anuncios/{id}/favoritos` | Bearer; não permite próprio anúncio, duplicado retorna 409 |
 | GET | `/api/v1/usuarios/me/favoritos` | Bearer; paginado |
-| POST / GET | `/api/v1/anuncios/{id}/mensagens` | Bearer; conversa do anúncio |
+| POST / GET | `/api/v1/anuncios/{id}/mensagens` | Bearer; somente comprador da reserva e vendedor |
+| GET | `/api/v1/mensagens/conversas` | Bearer; lista conversas do usuário |
 | PATCH | `/api/v1/mensagens/{id}/lida` | Bearer |
 | POST / DELETE | `/api/v1/anuncios/{id}/reserva` | Bearer |
 | POST | `/api/v1/anuncios/{id}/conclusao` | Bearer |

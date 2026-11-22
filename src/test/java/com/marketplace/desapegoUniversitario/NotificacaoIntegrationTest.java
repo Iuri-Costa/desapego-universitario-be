@@ -9,6 +9,7 @@ import org.springframework.http.MediaType;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 
+import java.util.List;
 import java.util.UUID;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
@@ -39,6 +40,10 @@ class NotificacaoIntegrationTest {
         String emailComprador = TestAutenticacao.novoEmail();
         TestAutenticacao.cadastrar(mockMvc, emailComprador);
         String comprador = TestAutenticacao.login(mockMvc, emailComprador);
+
+        mockMvc.perform(post("/api/v1/anuncios/{id}/reserva", anuncioId)
+                        .header("Authorization", "Bearer " + comprador))
+                .andExpect(status().isOk());
 
         mockMvc.perform(post("/api/v1/anuncios/{id}/mensagens", anuncioId)
                         .header("Authorization", "Bearer " + comprador)
@@ -76,6 +81,10 @@ class NotificacaoIntegrationTest {
         TestAutenticacao.cadastrar(mockMvc, emailComprador);
         String comprador = TestAutenticacao.login(mockMvc, emailComprador);
 
+        mockMvc.perform(post("/api/v1/anuncios/{id}/reserva", anuncioId)
+                        .header("Authorization", "Bearer " + comprador))
+                .andExpect(status().isOk());
+
         mockMvc.perform(post("/api/v1/anuncios/{id}/mensagens", anuncioId)
                         .header("Authorization", "Bearer " + comprador)
                         .contentType(MediaType.APPLICATION_JSON)
@@ -87,7 +96,14 @@ class NotificacaoIntegrationTest {
                         .param("size", "100"))
                 .andExpect(status().isOk())
                 .andReturn().getResponse().getContentAsString();
-        String id = com.jayway.jsonpath.JsonPath.read(corpo, "$.content[0].id");
+        List<String> mensagens = com.jayway.jsonpath.JsonPath.read(
+                corpo, "$.content[?(@.tipo == 'MENSAGEM')].id");
+        String id = mensagens.get(0);
+        String contagem = mockMvc.perform(get("/api/v1/notificacoes/nao-lidas")
+                        .header("Authorization", "Bearer " + vendedor))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+        int naoLidasAntes = com.jayway.jsonpath.JsonPath.read(contagem, "$.total");
 
         mockMvc.perform(patch("/api/v1/notificacoes/{id}/lida", UUID.fromString(id))
                         .header("Authorization", "Bearer " + comprador))
@@ -105,7 +121,7 @@ class NotificacaoIntegrationTest {
         mockMvc.perform(get("/api/v1/notificacoes/nao-lidas")
                         .header("Authorization", "Bearer " + vendedor))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.total").value(0));
+                .andExpect(jsonPath("$.total").value(naoLidasAntes - 1));
     }
 
     @Test

@@ -1,5 +1,6 @@
 package com.marketplace.desapegoUniversitario.controller;
 
+import com.marketplace.desapegoUniversitario.dto.ConversaResponseDTO;
 import com.marketplace.desapegoUniversitario.dto.MensagemRequestDTO;
 import com.marketplace.desapegoUniversitario.dto.MensagemResponseDTO;
 import com.marketplace.desapegoUniversitario.service.MensagemService;
@@ -44,6 +45,11 @@ public class MensagemController {
                                             @RequestParam(required = false) UUID compradorId,
                                             Authentication authentication) {
         return mensagemService.listar(id, compradorId, authentication.getName());
+    }
+
+    @GetMapping({"/mensagens/conversas", "/usuarios/me/conversas"})
+    public List<ConversaResponseDTO> listarConversas(Authentication authentication) {
+        return mensagemService.listarConversas(authentication.getName());
     }
 
     @PatchMapping("/mensagens/{id}/lida")

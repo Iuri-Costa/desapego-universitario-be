@@ -225,9 +225,10 @@ Não é possível favoritar o próprio anúncio (`400`, `codigo=PARAMETRO_INVALI
 |---|---|---|---|---|
 | POST | `/anuncios/{id}/mensagens` | Bearer | `curl -X POST "$BASE/anuncios/$ID/mensagens" -H "$AUTH" -H 'Content-Type: application/json' -d '{"conteudo":"Ainda está disponível?"}'` | `201` `MensagemResponseDTO` |
 | GET | `/anuncios/{id}/mensagens` | Bearer | `curl "$BASE/anuncios/$ID/mensagens?compradorId=33333333-3333-3333-3333-333333333333" -H "$AUTH"` | `200` lista de mensagens da conversa |
+| GET | `/mensagens/conversas` (alias: `/usuarios/me/conversas`) | Bearer | `curl "$BASE/mensagens/conversas" -H "$AUTH"` | `200` lista de `ConversaResponseDTO`, ordenada pela última mensagem |
 | PATCH | `/mensagens/{id}/lida` | Bearer, destinatário | `curl -X PATCH "$BASE/mensagens/44444444-4444-4444-4444-444444444444/lida" -H "$AUTH"` | `200` mensagem com `lidaEm` preenchido |
 
-`destinatarioId` no POST é obrigatório apenas quando o remetente é o vendedor; quando o remetente é o comprador, a mensagem vai para o vendedor do anúncio. Terceiros recebem `403` na listagem. O histórico não é paginado.
+Mensagens só trafegam entre o vendedor e o comprador de uma reserva ativa ou concluída do anúncio; terceiros recebem `403` (`codigo=ACESSO_NEGADO`) no envio e na listagem. `destinatarioId` no POST é obrigatório apenas quando o remetente é o vendedor e deve ser o comprador da reserva; quando o remetente é o comprador, a mensagem vai para o vendedor. O histórico de mensagens e a listagem de conversas não são paginados.
 
 `MensagemResponseDTO`:
 
@@ -241,6 +242,23 @@ Não é possível favoritar o próprio anúncio (`400`, `codigo=PARAMETRO_INVALI
   "conteudo": "Ainda está disponível?",
   "criadoEm": "2026-11-22T16:00:00Z",
   "lidaEm": null
+}
+```
+
+`ConversaResponseDTO`:
+
+```json
+{
+  "anuncioId": "11111111-1111-1111-1111-111111111111",
+  "anuncioTitulo": "Calculadora científica",
+  "anuncioStatus": "RESERVADO",
+  "compradorId": "33333333-3333-3333-3333-333333333333",
+  "vendedorId": "55555555-5555-5555-5555-555555555555",
+  "outroUsuarioId": "33333333-3333-3333-3333-333333333333",
+  "outroUsuarioNome": "João Silva",
+  "ultimaMensagem": "Ainda está disponível?",
+  "ultimaMensagemEm": "2026-11-22T16:00:00Z",
+  "mensagensNaoLidas": 1
 }
 ```
 

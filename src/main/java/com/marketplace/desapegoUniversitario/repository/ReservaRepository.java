@@ -12,4 +12,6 @@ public interface ReservaRepository extends JpaRepository<Reserva, UUID> {
 
     Optional<Reserva> findByAnuncioIdAndCompradorIdAndConcluidaEmIsNotNull(
             UUID anuncioId, UUID compradorId);
+
+    boolean existsByAnuncioIdAndCompradorIdAndCanceladaEmIsNull(UUID anuncioId, UUID compradorId);
 }

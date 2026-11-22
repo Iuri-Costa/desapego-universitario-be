@@ -29,4 +29,11 @@ public interface MensagemRepository extends JpaRepository<Mensagem, UUID> {
             """)
     List<Mensagem> findEnvolvendo(@Param("anuncioId") UUID anuncioId,
                                   @Param("usuarioId") UUID usuarioId);
+
+    @Query("""
+            select m from Mensagem m
+            where m.remetente.id = :usuarioId or m.destinatario.id = :usuarioId
+            order by m.criadoEm asc
+            """)
+    List<Mensagem> findEnvolvendoUsuario(@Param("usuarioId") UUID usuarioId);
 }
