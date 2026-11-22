@@ -3,6 +3,7 @@ package com.marketplace.desapegoUniversitario.service;
 import com.marketplace.desapegoUniversitario.domain.Categoria;
 import com.marketplace.desapegoUniversitario.dto.AnuncioRequestDTO;
 import com.marketplace.desapegoUniversitario.dto.AnuncioResponseDTO;
+import com.marketplace.desapegoUniversitario.exception.RecursoNaoEncontradoException;
 import com.marketplace.desapegoUniversitario.mapper.AnuncioMapper;
 import com.marketplace.desapegoUniversitario.repository.AnuncioRepository;
 import org.springframework.stereotype.Service;
@@ -32,6 +33,9 @@ public class AnuncioService {
 
     @Transactional
     public void deletarPorID(UUID id) {
+        if (!anuncioRepository.existsById(id)) {
+            throw new RecursoNaoEncontradoException("Anúncio não encontrado");
+        }
         anuncioRepository.deleteById(id);
     }
 
