@@ -8,6 +8,9 @@ import com.marketplace.desapegoUniversitario.domain.StatusAnuncio;
 import com.marketplace.desapegoUniversitario.domain.TipoAnuncio;
 import com.marketplace.desapegoUniversitario.domain.Usuario;
 import com.marketplace.desapegoUniversitario.dto.AnuncioFiltroDTO;
+import com.marketplace.desapegoUniversitario.dto.AnuncioPatchDTO;
+import com.marketplace.desapegoUniversitario.dto.AnuncioRequestDTO;
+import com.marketplace.desapegoUniversitario.exception.ConflitoException;
 import com.marketplace.desapegoUniversitario.exception.ImagemInvalidaException;
 import com.marketplace.desapegoUniversitario.exception.ParametroInvalidoException;
 import com.marketplace.desapegoUniversitario.repository.AnuncioImagemRepository;
@@ -172,5 +175,21 @@ class AnuncioServiceTest {
 
         assertThrows(ImagemInvalidaException.class,
                 () -> limitado.adicionarImagens(anuncioId, List.of(arquivo), EMAIL));
+    }
+
+    @Test
+    void deveRejeitarEdicaoDeAnuncioNaoAtivo() {
+        anuncio.setStatus(StatusAnuncio.RESERVADO);
+        when(anuncioRepository.findByIdAndRemovidoEmIsNull(anuncioId)).thenReturn(Optional.of(anuncio));
+        when(usuarioRepository.findByEmail(EMAIL)).thenReturn(Optional.of(anuncio.getUsuario()));
+
+        var completo = new AnuncioRequestDTO("Caderno revisado", BigDecimal.TEN, null, null,
+                Categoria.LIVROS, null, null, null, null, null);
+        var parcial = new AnuncioPatchDTO(Optional.of("Caderno revisado"), Optional.empty(),
+                Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(),
+                Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty());
+
+        assertThrows(ConflitoException.class, () -> service.atualizar(anuncioId, completo, EMAIL));
+        assertThrows(ConflitoException.class, () -> service.atualizarParcial(anuncioId, parcial, EMAIL));
     }
 }

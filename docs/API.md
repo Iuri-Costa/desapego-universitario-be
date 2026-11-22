@@ -178,14 +178,14 @@ Envelope retornado por buscas paginadas:
 | GET | `/anuncios` | Pública | `curl "$BASE/anuncios?q=calculadora&categoria=ELETRONICOS&precoMin=10&precoMax=100&page=0&size=20&sort=preco,asc;criadoEm,desc"` | `200` `PaginadoDTO<AnuncioResponseDTO>` |
 | GET | `/anuncios/{id}` | Pública | `curl "$BASE/anuncios/$ID"` | `200` `AnuncioResponseDTO`; `404` se removido |
 | GET | `/anuncios/categoria/{categoria}` | Pública | `curl "$BASE/anuncios/categoria/LIVROS"` | `200` lista de `AnuncioResponseDTO` |
-| PUT | `/anuncios/{id}` | Bearer, dono | `curl -X PUT "$BASE/anuncios/$ID" -H "$AUTH" -H 'Content-Type: application/json' -d '{"titulo":"Calculadora","preco":70.00,"categoria":"ELETRONICOS"}'` | `200` anúncio atualizado; `403` se não for dono |
-| PATCH | `/anuncios/{id}` | Bearer, dono | `curl -X PATCH "$BASE/anuncios/$ID" -H "$AUTH" -H 'Content-Type: application/json' -d '{"preco":65.00}'` | `200` anúncio atualizado |
+| PUT | `/anuncios/{id}` | Bearer, dono | `curl -X PUT "$BASE/anuncios/$ID" -H "$AUTH" -H 'Content-Type: application/json' -d '{"titulo":"Calculadora","preco":70.00,"categoria":"ELETRONICOS"}'` | `200` anúncio atualizado; `403` se não for dono; `409` se não estiver `ATIVO` |
+| PATCH | `/anuncios/{id}` | Bearer, dono | `curl -X PATCH "$BASE/anuncios/$ID" -H "$AUTH" -H 'Content-Type: application/json' -d '{"preco":65.00}'` | `200` anúncio atualizado; `409` se não estiver `ATIVO` |
 | DELETE | `/anuncios/{id}` | Bearer, dono | `curl -X DELETE "$BASE/anuncios/$ID" -H "$AUTH"` | `204`; soft delete (`status=REMOVIDO`) |
 | POST | `/anuncios/{id}/imagens` | Bearer, dono | `curl -X POST "$BASE/anuncios/$ID/imagens" -H "$AUTH" -F 'imagens=@foto1.jpg' -F 'imagens=@foto2.png'` | `200` `[{"id":"...","url":"/uploads/anuncios/..."}]` |
 | GET | `/anuncios/{id}/imagens` | Bearer, dono | `curl "$BASE/anuncios/$ID/imagens" -H "$AUTH"` | `200` lista de `ImagemResponseDTO` |
 | DELETE | `/anuncios/{id}/imagens/{imagemId}` | Bearer, dono | `curl -X DELETE "$BASE/anuncios/$ID/imagens/22222222-2222-2222-2222-222222222222" -H "$AUTH"` | `204` |
 
-Defaults na criação: `tipo=VENDA`, `condicao=USADO`, `campus=PRINCIPAL`, `localRetirada="A combinar"`. Imagens aceitas: JPEG/PNG/WebP, até `STORAGE_MAX_IMAGENS` (padrão 5) por anúncio e `STORAGE_MAX_TAMANHO` (padrão 2MB) por arquivo; magic bytes são validados. O campo legado `imagem` não é sincronizado com o upload.
+Defaults na criação: `tipo=VENDA`, `condicao=USADO`, `campus=PRINCIPAL`, `localRetirada="A combinar"`. `PUT` e `PATCH` só aceitam anúncios com `status=ATIVO`; reservado, vendido, doado ou removido retorna `409` (`codigo=CONFLITO`). Imagens aceitas: JPEG/PNG/WebP, até `STORAGE_MAX_IMAGENS` (padrão 5) por anúncio e `STORAGE_MAX_TAMANHO` (padrão 2MB) por arquivo; magic bytes são validados. O campo legado `imagem` não é sincronizado com o upload.
 
 `AnuncioResponseDTO` (resumo):
 

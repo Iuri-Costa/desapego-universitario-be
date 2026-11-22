@@ -11,6 +11,7 @@ import com.marketplace.desapegoUniversitario.dto.AnuncioRequestDTO;
 import com.marketplace.desapegoUniversitario.dto.AnuncioResponseDTO;
 import com.marketplace.desapegoUniversitario.dto.ImagemResponseDTO;
 import com.marketplace.desapegoUniversitario.dto.PaginadoDTO;
+import com.marketplace.desapegoUniversitario.exception.ConflitoException;
 import com.marketplace.desapegoUniversitario.exception.ImagemInvalidaException;
 import com.marketplace.desapegoUniversitario.exception.ParametroInvalidoException;
 import com.marketplace.desapegoUniversitario.exception.RecursoNaoEncontradoException;
@@ -102,6 +103,7 @@ public class AnuncioService {
     public AnuncioResponseDTO atualizar(UUID id, AnuncioRequestDTO dto, String emailUsuario) {
         Anuncio anuncio = buscarAnuncio(id);
         garantirDono(anuncio, buscarUsuario(emailUsuario));
+        exigirStatusEditavel(anuncio);
 
         AnuncioMapper.aplicarCampos(anuncio, dto);
         return paraResponse(salvar(anuncio));
@@ -113,6 +115,7 @@ public class AnuncioService {
     public AnuncioResponseDTO atualizarParcial(UUID id, AnuncioPatchDTO dto, String emailUsuario) {
         Anuncio anuncio = buscarAnuncio(id);
         garantirDono(anuncio, buscarUsuario(emailUsuario));
+        exigirStatusEditavel(anuncio);
 
         AnuncioMapper.aplicarCampos(anuncio, dto);
         return paraResponse(salvar(anuncio));
@@ -356,6 +359,12 @@ public class AnuncioService {
     private void garantirDono(Anuncio anuncio, Usuario usuario) {
         if (anuncio.getUsuario() == null || !anuncio.getUsuario().getId().equals(usuario.getId())) {
             throw new AccessDeniedException("Somente o dono pode alterar este anúncio");
+        }
+    }
+
+    private void exigirStatusEditavel(Anuncio anuncio) {
+        if (anuncio.getStatus() != StatusAnuncio.ATIVO) {
+            throw new ConflitoException("Somente anúncios ATIVO podem ser editados");
         }
     }
 }

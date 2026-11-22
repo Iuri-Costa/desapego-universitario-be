@@ -389,7 +389,7 @@ Documentação completa, payloads e códigos de resposta em [docs/API.md](docs/A
 | GET | `/api/v1/anuncios/{id}` | Público |
 | GET | `/api/v1/anuncios/categoria/{categoria}` | Público |
 | POST | `/api/v1/anuncios` | Bearer |
-| PUT / PATCH | `/api/v1/anuncios/{id}` | Bearer; somente o dono |
+| PUT / PATCH | `/api/v1/anuncios/{id}` | Bearer; somente o dono e anúncio `ATIVO` (senão 409) |
 | DELETE | `/api/v1/anuncios/{id}` | Bearer; somente o dono (soft delete) |
 | POST | `/api/v1/anuncios/{id}/imagens` | Bearer; `multipart/form-data`, campo `imagens`, até 5 imagens de 2 MB |
 | GET / DELETE | `/api/v1/anuncios/{id}/imagens[/{imagemId}]` | Bearer; somente o dono |
