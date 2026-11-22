@@ -23,15 +23,18 @@ public class S3ArmazenamentoImagens implements ArmazenamentoImagens {
     private final String bucket;
     private final String endpoint;
     private final String regiao;
+    private final String baseUrlPublica;
 
     public S3ArmazenamentoImagens(@Value("${app.storage.s3.bucket}") String bucket,
                                   @Value("${app.storage.s3.region}") String regiao,
                                   @Value("${app.storage.s3.endpoint:}") String endpoint,
                                   @Value("${app.storage.s3.access-key:}") String chaveAcesso,
-                                  @Value("${app.storage.s3.secret-key:}") String chaveSecreta) {
+                                  @Value("${app.storage.s3.secret-key:}") String chaveSecreta,
+                                  @Value("${app.storage.s3.public-base-url:}") String baseUrlPublica) {
         this.bucket = bucket;
         this.endpoint = endpoint;
         this.regiao = regiao;
+        this.baseUrlPublica = baseUrlPublica == null ? "" : baseUrlPublica.trim();
 
         var construtor = S3Client.builder()
                 .region(Region.of(regiao));
@@ -66,7 +69,13 @@ public class S3ArmazenamentoImagens implements ArmazenamentoImagens {
                 .build());
     }
 
-    private String urlPublica(String chave) {
+    public String urlPublica(String chave) {
+        if (!baseUrlPublica.isBlank()) {
+            String base = baseUrlPublica.endsWith("/")
+                    ? baseUrlPublica.substring(0, baseUrlPublica.length() - 1)
+                    : baseUrlPublica;
+            return base + "/" + chave;
+        }
         String base = endpoint.isBlank()
                 ? "https://" + bucket + ".s3." + regiao + ".amazonaws.com"
                 : endpoint.endsWith("/") ? endpoint.substring(0, endpoint.length() - 1) + "/" + bucket

@@ -359,7 +359,7 @@ A maioria das variáveis está em [`.env.example`](.env.example); as demais têm
 | `MAIL_SMTP_AUTH`, `MAIL_STARTTLS` | `true` | Autenticação/TLS do SMTP |
 | `FRONTEND_URL` | `http://localhost:5173` | URL usada nos links de e-mail |
 | `EMAIL_VERIFICATION_TTL`, `PASSWORD_RESET_TTL` | `PT24H`, `PT1H` | Validade dos tokens de e-mail |
-| `S3_BUCKET`, `S3_REGION`, `S3_ENDPOINT`, `S3_ACCESS_KEY`, `S3_SECRET_KEY`, `S3_PREFIX` | vazios / `us-east-1` / `anuncios` | Storage; sem bucket, usa disco local |
+| `S3_BUCKET`, `S3_REGION`, `S3_ENDPOINT`, `S3_ACCESS_KEY`, `S3_SECRET_KEY`, `S3_PUBLIC_BASE_URL`, `S3_PREFIX` | vazios / `us-east-1` / vazio / `anuncios` | Storage; sem bucket, usa disco local. `S3_PUBLIC_BASE_URL` opcional sobrescreve a base pública da imagem (útil para R2/CDN/domínio customizado) |
 | `STORAGE_LOCAL_DIR`, `STORAGE_MAX_IMAGENS`, `STORAGE_MAX_TAMANHO` | `/tmp/desapego-uploads`, `5`, `2MB` | Limites de upload local |
 | `MULTIPART_MAX_FILE_SIZE`, `MULTIPART_MAX_REQUEST_SIZE` | `10MB`, `25MB` | Limites de infra do multipart |
 | `FCM_CREDENTIALS`, `FCM_PROJECT_ID`, `FCM_SCOPE`, `FCM_OAUTH_URL`, `FCM_SEND_URL` | vazios / URLs padrão FCM | Push opcional; sem credencial, apenas notificação no banco |
