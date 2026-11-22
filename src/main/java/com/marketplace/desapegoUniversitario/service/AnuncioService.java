@@ -21,6 +21,8 @@ import com.marketplace.desapegoUniversitario.repository.AnuncioSpecification;
 import com.marketplace.desapegoUniversitario.repository.UsuarioRepository;
 import com.marketplace.desapegoUniversitario.util.Paginas;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
@@ -85,6 +87,8 @@ public class AnuncioService {
         this.prefixo = prefixo;
     }
 
+    @CacheEvict(value = {"anuncios-busca", "anuncios-detalhe", "anuncios-categoria"},
+            allEntries = true)
     @Transactional
     public AnuncioResponseDTO criar(AnuncioRequestDTO dto, String emailUsuario) {
         Usuario usuario = buscarUsuario(emailUsuario);
@@ -92,6 +96,8 @@ public class AnuncioService {
         return paraResponse(salvar(anuncio));
     }
 
+    @CacheEvict(value = {"anuncios-busca", "anuncios-detalhe", "anuncios-categoria"},
+            allEntries = true)
     @Transactional
     public AnuncioResponseDTO atualizar(UUID id, AnuncioRequestDTO dto, String emailUsuario) {
         Anuncio anuncio = buscarAnuncio(id);
@@ -101,6 +107,8 @@ public class AnuncioService {
         return paraResponse(salvar(anuncio));
     }
 
+    @CacheEvict(value = {"anuncios-busca", "anuncios-detalhe", "anuncios-categoria"},
+            allEntries = true)
     @Transactional
     public AnuncioResponseDTO atualizarParcial(UUID id, AnuncioPatchDTO dto, String emailUsuario) {
         Anuncio anuncio = buscarAnuncio(id);
@@ -111,10 +119,12 @@ public class AnuncioService {
     }
 
     @Transactional(readOnly = true)
+    @Cacheable(cacheNames = "anuncios-detalhe", key = "#id")
     public AnuncioResponseDTO buscarPorId(UUID id) {
         return paraResponse(buscarAnuncio(id));
     }
 
+    @Cacheable(cacheNames = "anuncios-busca", key = "#filtro")
     @Transactional(readOnly = true)
     public PaginadoDTO<AnuncioResponseDTO> buscar(AnuncioFiltroDTO filtro) {
         Page<Anuncio> pagina = anuncioRepository.findAll(AnuncioSpecification.de(filtro), paginacao(filtro));
@@ -128,6 +138,8 @@ public class AnuncioService {
                 .toList();
     }
 
+    @CacheEvict(value = {"anuncios-busca", "anuncios-detalhe", "anuncios-categoria"},
+            allEntries = true)
     @Transactional
     public void deletarPorID(UUID id, String emailUsuario) {
         Anuncio anuncio = buscarAnuncio(id);
@@ -135,6 +147,7 @@ public class AnuncioService {
         removerLogicamente(anuncio);
     }
 
+    @Cacheable(cacheNames = "anuncios-categoria", key = "#categoria")
     @Transactional(readOnly = true)
     public List<AnuncioResponseDTO> listarPorCategoria(Categoria categoria) {
         return anuncioRepository.findByCategoriaAndRemovidoEmIsNull(categoria).stream()
@@ -142,6 +155,8 @@ public class AnuncioService {
                 .toList();
     }
 
+    @CacheEvict(value = {"anuncios-busca", "anuncios-detalhe", "anuncios-categoria"},
+            allEntries = true)
     @Transactional
     public AnuncioResponseDTO moderar(UUID id, boolean moderado) {
         Anuncio anuncio = buscarAnuncio(id);
@@ -149,6 +164,8 @@ public class AnuncioService {
         return paraResponse(salvar(anuncio));
     }
 
+    @CacheEvict(value = {"anuncios-busca", "anuncios-detalhe", "anuncios-categoria"},
+            allEntries = true)
     @Transactional
     public void removerPorModeracao(UUID id) {
         removerLogicamente(buscarAnuncio(id));
@@ -161,6 +178,8 @@ public class AnuncioService {
         return imagensDe(id);
     }
 
+    @CacheEvict(value = {"anuncios-busca", "anuncios-detalhe", "anuncios-categoria"},
+            allEntries = true)
     @Transactional
     public List<ImagemResponseDTO> adicionarImagens(UUID id, List<MultipartFile> arquivos, String emailUsuario) {
         Anuncio anuncio = buscarAnuncio(id);
@@ -206,6 +225,8 @@ public class AnuncioService {
         }
     }
 
+    @CacheEvict(value = {"anuncios-busca", "anuncios-detalhe", "anuncios-categoria"},
+            allEntries = true)
     @Transactional
     public void removerImagem(UUID anuncioId, UUID imagemId, String emailUsuario) {
         Anuncio anuncio = buscarAnuncio(anuncioId);
