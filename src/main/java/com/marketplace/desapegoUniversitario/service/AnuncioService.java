@@ -19,9 +19,9 @@ import com.marketplace.desapegoUniversitario.repository.AnuncioImagemRepository;
 import com.marketplace.desapegoUniversitario.repository.AnuncioRepository;
 import com.marketplace.desapegoUniversitario.repository.AnuncioSpecification;
 import com.marketplace.desapegoUniversitario.repository.UsuarioRepository;
+import com.marketplace.desapegoUniversitario.util.Paginas;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.security.access.AccessDeniedException;
@@ -55,7 +55,6 @@ public class AnuncioService {
             "criadoEm", "criadoEm",
             "atualizadoEm", "atualizadoEm"
     );
-    private static final int TAMANHO_MAXIMO_PAGINA = 100;
     private static final Map<String, String> EXTENSOES = Map.of(
             "image/jpeg", "jpg",
             "image/png", "png",
@@ -283,10 +282,7 @@ public class AnuncioService {
     }
 
     private Pageable paginacao(AnuncioFiltroDTO filtro) {
-        if (filtro.page() < 0 || filtro.size() < 1 || filtro.size() > TAMANHO_MAXIMO_PAGINA) {
-            throw new ParametroInvalidoException(
-                    "Use page >= 0 e size entre 1 e " + TAMANHO_MAXIMO_PAGINA);
-        }
+        Paginas.validar(filtro.page(), filtro.size());
         BigDecimal min = filtro.precoMin();
         BigDecimal max = filtro.precoMax();
         if (min != null && max != null && min.compareTo(max) > 0) {
@@ -315,7 +311,7 @@ public class AnuncioService {
         if (ordens.isEmpty()) {
             throw new ParametroInvalidoException("Informe ao menos um campo de ordenação");
         }
-        return PageRequest.of(filtro.page(), filtro.size(), Sort.by(ordens));
+        return Paginas.de(filtro.page(), filtro.size(), Sort.by(ordens));
     }
 
     private Anuncio buscarAnuncio(UUID id) {

@@ -14,6 +14,7 @@ import com.marketplace.desapegoUniversitario.exception.RecursoNaoEncontradoExcep
 import com.marketplace.desapegoUniversitario.repository.AnuncioRepository;
 import com.marketplace.desapegoUniversitario.repository.DenunciaRepository;
 import com.marketplace.desapegoUniversitario.repository.UsuarioRepository;
+import com.marketplace.desapegoUniversitario.util.Paginas;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
@@ -24,8 +25,6 @@ import java.util.UUID;
 
 @Service
 public class DenunciaService {
-
-    private static final int TAMANHO_MAXIMO_PAGINA = 100;
 
     private final DenunciaRepository denunciaRepository;
     private final AnuncioRepository anuncioRepository;
@@ -67,11 +66,7 @@ public class DenunciaService {
 
     @Transactional(readOnly = true)
     public PaginadoDTO<DenunciaResponseDTO> listar(StatusDenuncia status, int page, int size) {
-        if (page < 0 || size < 1 || size > TAMANHO_MAXIMO_PAGINA) {
-            throw new ParametroInvalidoException(
-                    "Use page >= 0 e size entre 1 e " + TAMANHO_MAXIMO_PAGINA);
-        }
-        PageRequest paginacao = PageRequest.of(page, size);
+        PageRequest paginacao = Paginas.de(page, size);
         Page<Denuncia> denuncias = status == null
                 ? denunciaRepository.findAllByOrderByCriadoEmAsc(paginacao)
                 : denunciaRepository.findByStatusOrderByCriadoEmAsc(status, paginacao);

@@ -7,11 +7,11 @@ import com.marketplace.desapegoUniversitario.dto.AnuncioResponseDTO;
 import com.marketplace.desapegoUniversitario.dto.AtualizarPerfilDTO;
 import com.marketplace.desapegoUniversitario.dto.PaginadoDTO;
 import com.marketplace.desapegoUniversitario.dto.PerfilResponseDTO;
-import com.marketplace.desapegoUniversitario.exception.ParametroInvalidoException;
 import com.marketplace.desapegoUniversitario.exception.RecursoNaoEncontradoException;
 import com.marketplace.desapegoUniversitario.repository.AnuncioRepository;
 import com.marketplace.desapegoUniversitario.repository.FavoritoRepository;
 import com.marketplace.desapegoUniversitario.repository.UsuarioRepository;
+import com.marketplace.desapegoUniversitario.util.Paginas;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
@@ -22,8 +22,6 @@ import java.util.UUID;
 
 @Service
 public class PerfilService {
-
-    private static final int TAMANHO_MAXIMO_PAGINA = 100;
 
     private final UsuarioRepository usuarioRepository;
     private final AnuncioRepository anuncioRepository;
@@ -68,12 +66,8 @@ public class PerfilService {
     @Transactional(readOnly = true)
     public PaginadoDTO<AnuncioResponseDTO> historico(String emailUsuario, StatusAnuncio status,
                                                       boolean incluirRemovidos, int page, int size) {
-        if (page < 0 || size < 1 || size > TAMANHO_MAXIMO_PAGINA) {
-            throw new ParametroInvalidoException(
-                    "Use page >= 0 e size entre 1 e " + TAMANHO_MAXIMO_PAGINA);
-        }
         Usuario usuario = buscarUsuario(emailUsuario);
-        PageRequest paginacao = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "criadoEm"));
+        PageRequest paginacao = Paginas.de(page, size, Sort.by(Sort.Direction.DESC, "criadoEm"));
         Page<Anuncio> anuncios = consultarHistorico(usuario.getId(), status, incluirRemovidos, paginacao);
         return PaginadoDTO.de(anuncios, anuncioService::paraResponse);
     }

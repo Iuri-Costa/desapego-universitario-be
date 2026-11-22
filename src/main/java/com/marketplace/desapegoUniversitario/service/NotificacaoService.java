@@ -5,13 +5,12 @@ import com.marketplace.desapegoUniversitario.domain.Notificacao;
 import com.marketplace.desapegoUniversitario.domain.Usuario;
 import com.marketplace.desapegoUniversitario.dto.NotificacaoResponseDTO;
 import com.marketplace.desapegoUniversitario.dto.PaginadoDTO;
-import com.marketplace.desapegoUniversitario.exception.ParametroInvalidoException;
 import com.marketplace.desapegoUniversitario.exception.RecursoNaoEncontradoException;
 import com.marketplace.desapegoUniversitario.repository.DispositivoFCMRepository;
 import com.marketplace.desapegoUniversitario.repository.NotificacaoRepository;
 import com.marketplace.desapegoUniversitario.repository.UsuarioRepository;
+import com.marketplace.desapegoUniversitario.util.Paginas;
 import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -20,8 +19,6 @@ import java.util.UUID;
 
 @Service
 public class NotificacaoService {
-
-    private static final int TAMANHO_MAXIMO_PAGINA = 100;
 
     private final NotificacaoRepository notificacaoRepository;
     private final DispositivoFCMRepository dispositivoRepository;
@@ -52,13 +49,9 @@ public class NotificacaoService {
 
     @Transactional(readOnly = true)
     public PaginadoDTO<NotificacaoResponseDTO> listar(String emailUsuario, int page, int size) {
-        if (page < 0 || size < 1 || size > TAMANHO_MAXIMO_PAGINA) {
-            throw new ParametroInvalidoException(
-                    "Use page >= 0 e size entre 1 e " + TAMANHO_MAXIMO_PAGINA);
-        }
         Usuario usuario = buscarUsuario(emailUsuario);
         Page<Notificacao> pagina = notificacaoRepository
-                .findByDestinatarioIdOrderByCriadoEmDesc(usuario.getId(), PageRequest.of(page, size));
+                .findByDestinatarioIdOrderByCriadoEmDesc(usuario.getId(), Paginas.de(page, size));
         return PaginadoDTO.de(pagina, this::paraResponse);
     }
 
