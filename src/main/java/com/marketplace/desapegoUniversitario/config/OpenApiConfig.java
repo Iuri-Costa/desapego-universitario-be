@@ -38,7 +38,8 @@ public class OpenApiConfig {
                                 API REST do marketplace universitário. Todos os identificadores são UUID,
                                 datas em ISO 8601 UTC, paginação com `page`/`size`/`sort` e erros no formato
                                 `ErroResponse`. Use `POST /api/v1/auth/login` para obter o access token e
-                                `POST /api/v1/auth/refresh` para renová-lo.
+                                `POST /api/v1/auth/refresh` para renová-lo. Política de versionamento e
+                                depreciação: `docs/VERSIONAMENTO.md`.
                                 """))
                 .servers(List.of(new Server().url("/").description("Servidor atual")))
                 .components(new Components().addSecuritySchemes(SEGURANCA_BEARER, bearer))
