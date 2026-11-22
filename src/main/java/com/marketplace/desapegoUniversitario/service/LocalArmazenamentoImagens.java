@@ -32,7 +32,10 @@ public class LocalArmazenamentoImagens implements ArmazenamentoImagens {
     public String salvar(String chave, byte[] conteudo, String tipoConteudo) {
         try {
             Path destino = resolver(chave);
-            Files.createDirectories(destino.getParent());
+            Path pai = destino.getParent();
+            if (pai != null) {
+                Files.createDirectories(pai);
+            }
             Files.write(destino, conteudo);
             return caminhoPublico + "/" + chave;
         } catch (IOException e) {

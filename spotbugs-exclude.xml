@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<FindBugsFilter>
+    <Match>
+        <Bug pattern="EI_EXPOSE_REP,EI_EXPOSE_REP2"/>
+    </Match>
+    <Match>
+        <Bug pattern="CT_CONSTRUCTOR_THROW"/>
+    </Match>
+    <Match>
+        <Class name="com.marketplace.desapegoUniversitario.config.CorrelationIdFilter"/>
+        <Bug pattern="HRS_REQUEST_PARAMETER_TO_HTTP_HEADER"/>
+    </Match>
+</FindBugsFilter>
