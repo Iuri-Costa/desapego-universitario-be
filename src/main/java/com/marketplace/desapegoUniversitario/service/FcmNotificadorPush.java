@@ -5,7 +5,9 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import io.jsonwebtoken.Jwts;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.http.HttpStatusCode;
 import org.springframework.http.MediaType;
+import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestClient;
 
 import java.security.KeyFactory;
@@ -14,6 +16,7 @@ import java.security.spec.PKCS8EncodedKeySpec;
 import java.time.Instant;
 import java.util.Base64;
 import java.util.Date;
+import java.util.Locale;
 import java.util.Map;
 
 public class FcmNotificadorPush implements NotificadorPush {
@@ -51,9 +54,9 @@ public class FcmNotificadorPush implements NotificadorPush {
     }
 
     @Override
-    public void enviar(String tokenDispositivo, String titulo, String mensagem) {
+    public boolean enviar(String tokenDispositivo, String titulo, String mensagem) {
         if (tokenDispositivo == null || tokenDispositivo.isBlank()) {
-            return;
+            return true;
         }
         try {
             Map<String, Object> corpo = Map.of("message", Map.of(
@@ -66,9 +69,32 @@ public class FcmNotificadorPush implements NotificadorPush {
                     .body(corpo)
                     .retrieve()
                     .toBodilessEntity();
+            return true;
+        } catch (HttpClientErrorException e) {
+            if (tokenInvalidado(e.getStatusCode(), e.getResponseBodyAsString())) {
+                log.warn("Token FCM inválido; status={}", e.getStatusCode().value());
+                return false;
+            }
+            log.warn("Falha ao enviar notificação push FCM: status={}", e.getStatusCode().value());
+            return true;
         } catch (RuntimeException e) {
             log.warn("Falha ao enviar notificação push FCM: {}", e.getClass().getSimpleName());
+            return true;
         }
+    }
+
+    private boolean tokenInvalidado(HttpStatusCode status, String corpo) {
+        int codigo = status.value();
+        if (codigo == 404 || codigo == 403) {
+            return true;
+        }
+        if (codigo != 400 || corpo == null) {
+            return false;
+        }
+        String resposta = corpo.toUpperCase(Locale.ROOT);
+        return resposta.contains("FCMERROR")
+                || resposta.contains("INVALID_ARGUMENT")
+                || resposta.contains("REGISTRATION TOKEN");
     }
 
     private String tokenAcesso() {
@@ -89,12 +115,18 @@ public class FcmNotificadorPush implements NotificadorPush {
                     .signWith(privateKey, Jwts.SIG.RS256)
                     .compact();
 
-            JsonNode resposta = restClient.post()
+            String corpo = restClient.post()
                     .uri(oauthUrl)
                     .contentType(MediaType.APPLICATION_FORM_URLENCODED)
                     .body("grant_type=urn%3Aietf%3Aparams%3Aoauth%3Agrant-type%3Ajwt-bearer&assertion=" + assertion)
                     .retrieve()
-                    .body(JsonNode.class);
+                    .body(String.class);
+            JsonNode resposta;
+            try {
+                resposta = objectMapper.readTree(corpo == null ? "{}" : corpo);
+            } catch (Exception e) {
+                throw new IllegalStateException("Resposta OAuth inválida", e);
+            }
             accessToken = resposta.path("access_token").asText();
             long segundos = resposta.path("expires_in").asLong(3600);
             expiracao = Instant.now().plusSeconds(Math.max(60, segundos - 60));

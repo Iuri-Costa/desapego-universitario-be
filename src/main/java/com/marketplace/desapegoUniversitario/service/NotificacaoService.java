@@ -10,10 +10,13 @@ import com.marketplace.desapegoUniversitario.repository.DispositivoFCMRepository
 import com.marketplace.desapegoUniversitario.repository.NotificacaoRepository;
 import com.marketplace.desapegoUniversitario.repository.UsuarioRepository;
 import com.marketplace.desapegoUniversitario.util.Paginas;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Duration;
 import java.time.Instant;
 import java.util.UUID;
 
@@ -24,15 +27,21 @@ public class NotificacaoService {
     private final DispositivoFCMRepository dispositivoRepository;
     private final UsuarioRepository usuarioRepository;
     private final NotificadorPush notificadorPush;
+    private final Duration deviceTtl;
+    private final int cleanupLote;
 
     public NotificacaoService(NotificacaoRepository notificacaoRepository,
                               DispositivoFCMRepository dispositivoRepository,
                               UsuarioRepository usuarioRepository,
-                              NotificadorPush notificadorPush) {
+                              NotificadorPush notificadorPush,
+                              @Value("${app.fcm.device-ttl:P90D}") Duration deviceTtl,
+                              @Value("${app.fcm.cleanup-lote:500}") int cleanupLote) {
         this.notificacaoRepository = notificacaoRepository;
         this.dispositivoRepository = dispositivoRepository;
         this.usuarioRepository = usuarioRepository;
         this.notificadorPush = notificadorPush;
+        this.deviceTtl = deviceTtl;
+        this.cleanupLote = cleanupLote;
     }
 
     @Transactional
@@ -42,9 +51,12 @@ public class NotificacaoService {
                 .orElseThrow(() -> new RecursoNaoEncontradoException("Usuário não encontrado"));
         notificacaoRepository.save(new Notificacao(
                 null, destinatario, titulo, mensagem, tipo, referenciaId, null, Instant.now()));
-        dispositivoRepository.findByUsuarioId(destinatarioId).stream()
-                .map(DispositivoFCM::getToken)
-                .forEach(token -> notificadorPush.enviar(token, titulo, mensagem));
+        limparDispositivosAntigos();
+        for (DispositivoFCM dispositivo : dispositivoRepository.findByUsuarioId(destinatarioId)) {
+            if (!notificadorPush.enviar(dispositivo.getToken(), titulo, mensagem)) {
+                dispositivoRepository.delete(dispositivo);
+            }
+        }
     }
 
     @Transactional(readOnly = true)
@@ -80,6 +92,7 @@ public class NotificacaoService {
     @Transactional
     public void registrarDispositivo(String token, String emailUsuario) {
         Usuario usuario = buscarUsuario(emailUsuario);
+        limparDispositivosAntigos();
         String tokenNormalizado = token.trim();
         DispositivoFCM dispositivo = dispositivoRepository.findByToken(tokenNormalizado)
                 .orElseGet(() -> new DispositivoFCM(
@@ -91,9 +104,15 @@ public class NotificacaoService {
     @Transactional
     public void removerDispositivo(String token, String emailUsuario) {
         Usuario usuario = buscarUsuario(emailUsuario);
-        dispositivoRepository.findByToken(token)
+        dispositivoRepository.findByToken(token.trim())
                 .filter(dispositivo -> dispositivo.getUsuario().getId().equals(usuario.getId()))
                 .ifPresent(dispositivoRepository::delete);
+    }
+
+    private void limparDispositivosAntigos() {
+        Instant limite = Instant.now().minus(deviceTtl);
+        dispositivoRepository.findByCriadoEmBefore(limite, PageRequest.of(0, cleanupLote))
+                .forEach(dispositivoRepository::delete);
     }
 
     private NotificacaoResponseDTO paraResponse(Notificacao notificacao) {

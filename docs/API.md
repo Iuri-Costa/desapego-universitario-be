@@ -321,7 +321,7 @@ Não denunciar próprio anúncio (`400`); duplicata pendente retorna `409`. `mot
 | POST | `/notificacoes/dispositivo` | Bearer | `curl -X POST "$BASE/notificacoes/dispositivo" -H "$AUTH" -H 'Content-Type: application/json' -d '{"token":"token-fcm-do-dispositivo"}'` | `201` vazio |
 | DELETE | `/notificacoes/dispositivo` | Bearer | `curl -X DELETE "$BASE/notificacoes/dispositivo" -H "$AUTH" -H 'Content-Type: application/json' -d '{"token":"token-fcm-do-dispositivo"}'` | `204` |
 
-Tipos produzidos: `MENSAGEM`, `RESERVA`, `CONCLUSAO`, `AVALIACAO`, `DENUNCIA`. O token FCM nunca é devolvido pela API. Sem `FCM_CREDENTIALS`, as notificações ficam apenas no banco (`LocalNotificadorPush`).
+Tipos produzidos: `MENSAGEM`, `RESERVA`, `CONCLUSAO`, `AVALIACAO`, `DENUNCIA`. O token FCM nunca é devolvido pela API. Sem `FCM_CREDENTIALS`, as notificações ficam apenas no banco (`LocalNotificadorPush`). Com FCM ativo, tokens recusados como inválidos/expirados (`UNREGISTERED`, `SENDER_ID_MISMATCH`, `INVALID_ARGUMENT` de registration token) são removidos automaticamente; falhas transitórias preservam o token. Tokens sem envio por mais de `FCM_DEVICE_TTL` (padrão `P90D`) são limpos em lotes de `FCM_CLEANUP_LOTE` (padrão `500`) quando um dispositivo é registrado ou uma notificação é enviada.
 
 `NotificacaoResponseDTO`:
 

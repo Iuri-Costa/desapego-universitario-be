@@ -1,5 +1,8 @@
 package com.marketplace.desapegoUniversitario;
 
+import com.marketplace.desapegoUniversitario.domain.DispositivoFCM;
+import com.marketplace.desapegoUniversitario.domain.Usuario;
+import com.marketplace.desapegoUniversitario.repository.DispositivoFCMRepository;
 import com.marketplace.desapegoUniversitario.repository.UsuarioRepository;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -9,9 +12,12 @@ import org.springframework.http.MediaType;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 
+import java.time.Duration;
+import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
@@ -29,6 +35,9 @@ class NotificacaoIntegrationTest {
 
     @Autowired
     private UsuarioRepository usuarioRepository;
+
+    @Autowired
+    private DispositivoFCMRepository dispositivoRepository;
 
     @Test
     void mensagemDeveGerarNotificacaoParaODestinatario() throws Exception {
@@ -151,7 +160,7 @@ class NotificacaoIntegrationTest {
         mockMvc.perform(delete("/api/v1/notificacoes/dispositivo")
                         .header("Authorization", "Bearer " + token)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"token\":\"" + dispositivo + "\"}"))
+                        .content("{\"token\":\"  " + dispositivo + "  \"}"))
                 .andExpect(status().isNoContent());
 
         mockMvc.perform(delete("/api/v1/notificacoes/dispositivo")
@@ -159,6 +168,26 @@ class NotificacaoIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"token\":\"" + dispositivo + "\"}"))
                 .andExpect(status().isNoContent());
+    }
+
+    @Test
+    void dispositivoAntigoDeveSerRemovidoAoRegistrarNovoDispositivo() throws Exception {
+        String email = TestAutenticacao.novoEmail();
+        TestAutenticacao.cadastrar(mockMvc, email);
+        String token = TestAutenticacao.login(mockMvc, email);
+        Usuario usuario = usuarioRepository.findByEmail(email).orElseThrow();
+
+        dispositivoRepository.save(new DispositivoFCM(null, usuario,
+                "antigo-" + UUID.randomUUID(), Instant.now().minus(Duration.ofDays(120))));
+
+        mockMvc.perform(post("/api/v1/notificacoes/dispositivo")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"token\":\"novo-" + UUID.randomUUID() + "\"}"))
+                .andExpect(status().isCreated());
+
+        assertTrue(dispositivoRepository.findAll().stream()
+                .noneMatch(dispositivo -> dispositivo.getToken().startsWith("antigo-")));
     }
 
     @Test

@@ -363,6 +363,7 @@ A maioria das variáveis está em [`.env.example`](.env.example); as demais têm
 | `STORAGE_LOCAL_DIR`, `STORAGE_MAX_IMAGENS`, `STORAGE_MAX_TAMANHO` | `/tmp/desapego-uploads`, `5`, `2MB` | Limites de upload local |
 | `MULTIPART_MAX_FILE_SIZE`, `MULTIPART_MAX_REQUEST_SIZE` | `10MB`, `25MB` | Limites de infra do multipart |
 | `FCM_CREDENTIALS`, `FCM_PROJECT_ID`, `FCM_SCOPE`, `FCM_OAUTH_URL`, `FCM_SEND_URL` | vazios / URLs padrão FCM | Push opcional; sem credencial, apenas notificação no banco |
+| `FCM_DEVICE_TTL`, `FCM_CLEANUP_LOTE` | `P90D`, `500` | Tokens antigos são removidos em lotes ao registrar dispositivo ou notificar; tokens recusados pelo FCM são removidos na hora |
 | `JPA_SHOW_SQL`, `JPA_FORMAT_SQL`, `SQL_LOG_LEVEL` | `false`, `false`, `WARN` | Logs SQL (nunca ligar bind de parâmetros) |
 | `LOG_FORMAT`, `LOG_LEVEL_ROOT`, `APP_VERSION` | `logstash`, `INFO`, `1.0.0` | Logs JSON e metadados do `/actuator/info` |
 | `OPENAPI_ENABLED`, `SWAGGER_UI_ENABLED` | `true` | Documentação da API |

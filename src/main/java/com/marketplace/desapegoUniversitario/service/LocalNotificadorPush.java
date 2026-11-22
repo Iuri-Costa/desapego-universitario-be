@@ -8,7 +8,8 @@ public class LocalNotificadorPush implements NotificadorPush {
     private static final Logger log = LoggerFactory.getLogger(LocalNotificadorPush.class);
 
     @Override
-    public void enviar(String tokenDispositivo, String titulo, String mensagem) {
+    public boolean enviar(String tokenDispositivo, String titulo, String mensagem) {
         log.debug("Push local ignorado: titulo={}", titulo);
+        return true;
     }
 }
