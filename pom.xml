@@ -206,11 +206,12 @@
 							<goal>check</goal>
 						</goals>
 						<configuration>
+							<haltOnFailure>true</haltOnFailure>
 							<rules>
 								<rule>
-									<element>BUNDLE</element>
+									<element>PACKAGE</element>
 									<includes>
-										<include>com/marketplace/desapegoUniversitario/service/*</include>
+										<include>com.marketplace.desapegoUniversitario.service</include>
 									</includes>
 									<limits>
 										<limit>
@@ -221,9 +222,9 @@
 									</limits>
 								</rule>
 								<rule>
-									<element>BUNDLE</element>
+									<element>PACKAGE</element>
 									<includes>
-										<include>com/marketplace/desapegoUniversitario/controller/*</include>
+										<include>com.marketplace.desapegoUniversitario.controller</include>
 									</includes>
 									<limits>
 										<limit>
