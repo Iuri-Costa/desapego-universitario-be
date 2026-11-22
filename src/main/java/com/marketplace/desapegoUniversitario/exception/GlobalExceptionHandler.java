@@ -4,6 +4,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
@@ -17,7 +18,6 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 
-import java.time.OffsetDateTime;
 import java.util.Comparator;
 import java.util.List;
 
@@ -25,6 +25,12 @@ import java.util.List;
 public class GlobalExceptionHandler {
 
     private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
+
+    private final ErroResponseFactory erroFactory;
+
+    public GlobalExceptionHandler(ErroResponseFactory erroFactory) {
+        this.erroFactory = erroFactory;
+    }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<ErroResponse> tratarValidacao(MethodArgumentNotValidException ex,
@@ -94,6 +100,15 @@ public class GlobalExceptionHandler {
         return resposta(HttpStatus.NOT_FOUND, "NAO_ENCONTRADO", "Recurso não encontrado", request, List.of());
     }
 
+    @ExceptionHandler(LimiteExcedidoException.class)
+    public ResponseEntity<ErroResponse> tratarLimiteExcedido(LimiteExcedidoException ex,
+                                                             HttpServletRequest request) {
+        return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
+                .header(HttpHeaders.RETRY_AFTER, String.valueOf(ex.getRetryAfterSegundos()))
+                .body(erroFactory.criar(HttpStatus.TOO_MANY_REQUESTS, "LIMITE_EXCEDIDO",
+                        ex.getMessage(), request, List.of()));
+    }
+
     @ExceptionHandler(CredenciaisInvalidasException.class)
     public ResponseEntity<ErroResponse> tratarCredenciaisInvalidas(CredenciaisInvalidasException ex,
                                                                    HttpServletRequest request) {
@@ -157,14 +172,6 @@ public class GlobalExceptionHandler {
 
     private ResponseEntity<ErroResponse> resposta(HttpStatus status, String codigo, String mensagem,
                                                   HttpServletRequest request, List<ErroCampo> erros) {
-        ErroResponse corpo = new ErroResponse(
-                OffsetDateTime.now(),
-                status.value(),
-                codigo,
-                mensagem,
-                request.getRequestURI(),
-                erros
-        );
-        return ResponseEntity.status(status).body(corpo);
+        return ResponseEntity.status(status).body(erroFactory.criar(status, codigo, mensagem, request, erros));
     }
 }

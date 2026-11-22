@@ -11,6 +11,7 @@ import com.marketplace.desapegoUniversitario.exception.RecursoNaoEncontradoExcep
 import com.marketplace.desapegoUniversitario.mapper.UsuarioMapper;
 import com.marketplace.desapegoUniversitario.repository.RefreshTokenRepository;
 import com.marketplace.desapegoUniversitario.repository.UsuarioRepository;
+import com.marketplace.desapegoUniversitario.security.LimitadorRequisicoes;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -29,6 +30,7 @@ public class UsuarioService {
     private final EmailSender emailSender;
     private final DominiosInstitucionais dominiosInstitucionais;
     private final UsuarioTokenService usuarioTokenService;
+    private final LimitadorRequisicoes limitador;
     private final String frontendUrl;
 
     public UsuarioService(UsuarioRepository usuarioRepository,
@@ -37,6 +39,7 @@ public class UsuarioService {
                           EmailSender emailSender,
                           DominiosInstitucionais dominiosInstitucionais,
                           UsuarioTokenService usuarioTokenService,
+                          LimitadorRequisicoes limitador,
                           @Value("${app.frontend.url}") String frontendUrl) {
         this.usuarioRepository = usuarioRepository;
         this.refreshTokenRepository = refreshTokenRepository;
@@ -44,11 +47,13 @@ public class UsuarioService {
         this.emailSender = emailSender;
         this.dominiosInstitucionais = dominiosInstitucionais;
         this.usuarioTokenService = usuarioTokenService;
+        this.limitador = limitador;
         this.frontendUrl = frontendUrl;
     }
 
     @Transactional
     public void cadastrar(CadastroDTO dto) {
+        limitador.verificarEmail(LimitadorRequisicoes.Tipo.CADASTRO, dto.email());
         String email = normalizar(dto.email());
         if (!dominiosInstitucionais.aceito(email)) {
             throw new DominioInstitucionalInvalidoException(

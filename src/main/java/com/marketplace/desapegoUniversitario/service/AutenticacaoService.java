@@ -9,6 +9,7 @@ import com.marketplace.desapegoUniversitario.exception.TokenInvalidoException;
 import com.marketplace.desapegoUniversitario.repository.RefreshTokenRepository;
 import com.marketplace.desapegoUniversitario.repository.UsuarioRepository;
 import com.marketplace.desapegoUniversitario.security.JwtService;
+import com.marketplace.desapegoUniversitario.security.LimitadorRequisicoes;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.JwtException;
 import org.springframework.security.core.AuthenticationException;
@@ -30,20 +31,24 @@ public class AutenticacaoService {
     private final UsuarioRepository usuarioRepository;
     private final RefreshTokenRepository refreshTokenRepository;
     private final JwtService jwtService;
+    private final LimitadorRequisicoes limitador;
 
     public AutenticacaoService(AuthenticationManager authenticationManager,
                                UsuarioRepository usuarioRepository,
                                RefreshTokenRepository refreshTokenRepository,
-                               JwtService jwtService) {
+                               JwtService jwtService,
+                               LimitadorRequisicoes limitador) {
         this.authenticationManager = authenticationManager;
         this.usuarioRepository = usuarioRepository;
         this.refreshTokenRepository = refreshTokenRepository;
         this.jwtService = jwtService;
+        this.limitador = limitador;
     }
 
     @Transactional
     public TokenResponseDTO login(LoginDTO dto) {
         String email = UsuarioService.normalizar(dto.email());
+        limitador.verificarEmail(LimitadorRequisicoes.Tipo.LOGIN, email);
         try {
             authenticationManager.authenticate(
                     new UsernamePasswordAuthenticationToken(email, dto.senha()));

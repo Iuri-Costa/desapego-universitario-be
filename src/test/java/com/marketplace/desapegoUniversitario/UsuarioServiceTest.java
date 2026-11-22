@@ -7,6 +7,7 @@ import com.marketplace.desapegoUniversitario.domain.Usuario;
 import com.marketplace.desapegoUniversitario.exception.RecursoNaoEncontradoException;
 import com.marketplace.desapegoUniversitario.repository.RefreshTokenRepository;
 import com.marketplace.desapegoUniversitario.repository.UsuarioRepository;
+import com.marketplace.desapegoUniversitario.security.LimitadorRequisicoes;
 import com.marketplace.desapegoUniversitario.service.EmailSender;
 import com.marketplace.desapegoUniversitario.service.UsuarioService;
 import com.marketplace.desapegoUniversitario.service.UsuarioTokenService;
@@ -17,6 +18,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
+import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
@@ -51,6 +53,7 @@ class UsuarioServiceTest {
     void setUp() {
         service = new UsuarioService(usuarioRepository, refreshTokenRepository, passwordEncoder,
                 emailSender, new DominiosInstitucionais("edu.br"), usuarioTokenService,
+                new LimitadorRequisicoes(1000, 1000, Duration.ofMinutes(1)),
                 "https://app.example.com");
     }
 
