@@ -17,4 +17,8 @@ public interface DenunciaRepository extends JpaRepository<Denuncia, UUID> {
 
     Optional<Denuncia> findByAnuncioIdAndDenuncianteIdAndStatus(
             UUID anuncioId, UUID denuncianteId, StatusDenuncia status);
+
+    Page<Denuncia> findByDenuncianteIdOrderByCriadoEmDesc(UUID denuncianteId, Pageable pageable);
+
+    Optional<Denuncia> findByIdAndDenuncianteId(UUID id, UUID denuncianteId);
 }

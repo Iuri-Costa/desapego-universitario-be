@@ -17,6 +17,7 @@ import com.marketplace.desapegoUniversitario.repository.UsuarioRepository;
 import com.marketplace.desapegoUniversitario.util.Paginas;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -58,7 +59,7 @@ public class DenunciaService {
         }
 
         Denuncia denuncia = denunciaRepository.save(new Denuncia(
-                null, anuncio, denunciante, dto.motivo().trim(),
+                null, anuncio, denunciante, dto.motivo(),
                 dto.descricao() == null ? null : dto.descricao().trim(),
                 StatusDenuncia.PENDENTE, null, null, Instant.now()));
         return paraResponse(denuncia);
@@ -71,6 +72,22 @@ public class DenunciaService {
                 ? denunciaRepository.findAllByOrderByCriadoEmAsc(paginacao)
                 : denunciaRepository.findByStatusOrderByCriadoEmAsc(status, paginacao);
         return PaginadoDTO.de(denuncias, this::paraResponse);
+    }
+
+    @Transactional(readOnly = true)
+    public PaginadoDTO<DenunciaResponseDTO> listarMinhas(String emailUsuario, int page, int size) {
+        Usuario denunciante = buscarUsuario(emailUsuario);
+        Page<Denuncia> denuncias = denunciaRepository
+                .findByDenuncianteIdOrderByCriadoEmDesc(denunciante.getId(), Paginas.de(page, size));
+        return PaginadoDTO.de(denuncias, this::paraResponse);
+    }
+
+    @Transactional(readOnly = true)
+    public DenunciaResponseDTO buscarMinha(UUID id, String emailUsuario) {
+        Usuario denunciante = buscarUsuario(emailUsuario);
+        Denuncia denuncia = denunciaRepository.findByIdAndDenuncianteId(id, denunciante.getId())
+                .orElseThrow(() -> new AccessDeniedException("Esta denúncia não pertence ao usuário"));
+        return paraResponse(denuncia);
     }
 
     @Transactional

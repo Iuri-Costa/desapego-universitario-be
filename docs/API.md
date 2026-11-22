@@ -305,9 +305,11 @@ Uma reserva ativa expira automaticamente após `RESERVA_TTL` (padrão `PT24H`): 
 
 | Método | Rota | Auth | Exemplo | Resposta |
 |---|---|---|---|---|
-| POST | `/anuncios/{id}/denuncias` | Bearer | `curl -X POST "$BASE/anuncios/$ID/denuncias" -H "$AUTH" -H 'Content-Type: application/json' -d '{"motivo":"Fraude","descricao":"Anúncio duplicado suspeito"}'` | `201` `DenunciaResponseDTO` com `status=PENDENTE` |
+| POST | `/anuncios/{id}/denuncias` | Bearer | `curl -X POST "$BASE/anuncios/$ID/denuncias" -H "$AUTH" -H 'Content-Type: application/json' -d '{"motivo":"FRAUDE","descricao":"Anúncio duplicado suspeito"}'` | `201` `DenunciaResponseDTO` com `status=PENDENTE` |
+| GET | `/usuarios/me/denuncias` | Bearer | `curl "$BASE/usuarios/me/denuncias?page=0&size=20" -H "$AUTH"` | `200` `PaginadoDTO<DenunciaResponseDTO>` das próprias denúncias, mais recentes primeiro |
+| GET | `/usuarios/me/denuncias/{id}` | Bearer | `curl "$BASE/usuarios/me/denuncias/77777777-7777-7777-7777-777777777777" -H "$AUTH"` | `200` `DenunciaResponseDTO`; `403` se pertencer a outro usuário |
 
-Não denunciar próprio anúncio (`400`); duplicata pendente retorna `409`. `motivo` é texto livre (até 50 caracteres). Não há listagem de denúncias pelo denunciante; a listagem/resolução é administrativa.
+Não denunciar próprio anúncio (`400`); duplicata pendente retorna `409`. `motivo` é um enum (`FRAUDE`, `SPAM`, `PRODUTO_PROIBIDO`, `DUPLICADO`, `OFENSA`, `OUTROS`): a entrada aceita qualquer caixa, a resposta usa sempre o nome canônico em maiúsculas. Motivo ausente retorna `400 VALIDACAO`; motivo desconhecido retorna `400 REQUISICAO_INVALIDA`. O denunciante acompanha status e resolução pelos endpoints `/usuarios/me/denuncias`; a listagem/resolução administrativa continua em `/admin/denuncias`.
 
 ## Notificações e FCM
 
@@ -353,7 +355,7 @@ Todas as rotas exigem `ROLE_ADMIN` no filtro HTTP e também `@PreAuthorize("hasR
   "id": "77777777-7777-7777-7777-777777777777",
   "anuncioId": "11111111-1111-1111-1111-111111111111",
   "denuncianteId": "33333333-3333-3333-3333-333333333333",
-  "motivo": "Fraude",
+  "motivo": "FRAUDE",
   "descricao": "Anúncio duplicado suspeito",
   "status": "RESOLVIDA",
   "resolvidaEm": "2026-11-22T16:10:00Z",

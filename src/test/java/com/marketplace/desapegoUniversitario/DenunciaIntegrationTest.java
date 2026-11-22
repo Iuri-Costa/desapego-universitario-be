@@ -43,7 +43,7 @@ class DenunciaIntegrationTest {
                         .content("{\"motivo\":\"Fraude\",\"descricao\":\"Preço suspeito\"}"))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.status").value("PENDENTE"))
-                .andExpect(jsonPath("$.motivo").value("Fraude"))
+                .andExpect(jsonPath("$.motivo").value("FRAUDE"))
                 .andReturn().getResponse().getContentAsString();
         UUID denunciaId = UUID.fromString(com.jayway.jsonpath.JsonPath.read(corpo, "$.id"));
 
@@ -112,7 +112,22 @@ class DenunciaIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"motivo\":\"\"}"))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.codigo").value("VALIDACAO"));
+                .andExpect(jsonPath("$.codigo").value("REQUISICAO_INVALIDA"));
+
+        mockMvc.perform(post("/api/v1/anuncios/{id}/denuncias", anuncioId)
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"descricao\":\"Sem motivo\"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.codigo").value("VALIDACAO"))
+                .andExpect(jsonPath("$.erros[0].campo").value("motivo"));
+
+        mockMvc.perform(post("/api/v1/anuncios/{id}/denuncias", anuncioId)
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"motivo\":\"INEXISTENTE\"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.codigo").value("REQUISICAO_INVALIDA"));
 
         mockMvc.perform(post("/api/v1/anuncios/{id}/denuncias", UUID.randomUUID())
                         .header("Authorization", "Bearer " + token)
@@ -151,5 +166,58 @@ class DenunciaIntegrationTest {
                         .param("size", "100"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.content[?(@.id == '" + denunciaId + "')]").exists());
+    }
+
+    @Test
+    void denuncianteDeveAcompanharSuasDenunciasSemVerAsDosOutros() throws Exception {
+        String dono = TestAutenticacao.cadastrarELogar(mockMvc);
+        UUID anuncioId = TestAutenticacao.criarAnuncio(mockMvc, dono);
+        String denunciante = TestAutenticacao.cadastrarELogar(mockMvc);
+        String outro = TestAutenticacao.cadastrarELogar(mockMvc);
+        String admin = TestAutenticacao.cadastrarAdminELogar(mockMvc, usuarioRepository);
+
+        String corpo = mockMvc.perform(post("/api/v1/anuncios/{id}/denuncias", anuncioId)
+                        .header("Authorization", "Bearer " + denunciante)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"motivo\":\"PRODUTO_PROIBIDO\",\"descricao\":\"Produto irregular\"}"))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.motivo").value("PRODUTO_PROIBIDO"))
+                .andReturn().getResponse().getContentAsString();
+        UUID denunciaId = UUID.fromString(com.jayway.jsonpath.JsonPath.read(corpo, "$.id"));
+
+        mockMvc.perform(get("/api/v1/usuarios/me/denuncias")
+                        .header("Authorization", "Bearer " + denunciante))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content[?(@.id == '" + denunciaId + "')]").exists())
+                .andExpect(jsonPath("$.content[0].status").value("PENDENTE"));
+
+        mockMvc.perform(get("/api/v1/usuarios/me/denuncias/{id}", denunciaId)
+                        .header("Authorization", "Bearer " + denunciante))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(denunciaId.toString()))
+                .andExpect(jsonPath("$.motivo").value("PRODUTO_PROIBIDO"))
+                .andExpect(jsonPath("$.descricao").value("Produto irregular"));
+
+        mockMvc.perform(get("/api/v1/usuarios/me/denuncias/{id}", denunciaId)
+                        .header("Authorization", "Bearer " + outro))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.codigo").value("ACESSO_NEGADO"));
+
+        mockMvc.perform(get("/api/v1/usuarios/me/denuncias")
+                        .header("Authorization", "Bearer " + outro))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content[?(@.id == '" + denunciaId + "')]").doesNotExist());
+
+        mockMvc.perform(post("/api/v1/admin/denuncias/{id}/resolucao", denunciaId)
+                        .header("Authorization", "Bearer " + admin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"status\":\"RESOLVIDA\"}"))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(get("/api/v1/usuarios/me/denuncias/{id}", denunciaId)
+                        .header("Authorization", "Bearer " + denunciante))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("RESOLVIDA"))
+                .andExpect(jsonPath("$.resolvidaEm").exists());
     }
 }

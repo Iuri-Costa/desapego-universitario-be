@@ -37,8 +37,9 @@ public class Denuncia {
     @JoinColumn(name = "denunciante_id", nullable = false)
     private Usuario denunciante;
 
+    @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 50)
-    private String motivo;
+    private MotivoDenuncia motivo;
 
     @Column(length = 1000)
     private String descricao;
