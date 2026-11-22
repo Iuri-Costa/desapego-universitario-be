@@ -1,104 +1,452 @@
 # Desapego Universitário — Backend
-- **URL Base da API:** [https://desapego-universitario-be.onrender.com/api/v1](https://desapego-universitario-be.onrender.com/api/v1)
-- **Endpoint de Anúncios:** `/api/v1/anuncios`
 
-Marketplace de economia circular para estudantes universitários, permitindo que anunciem itens (livros, eletrônicos, móveis, etc.) para venda ou doação dentro do campus. Feito como desafio técnico do processo seletivo do Laboratório Vortex (Unifor), etapa VORTEX 2026.2.
+- **URL base (produção):** https://desapego-universitario-be.onrender.com/api/v1
+- **Documentação interativa:** `/swagger-ui.html` · **Contrato exportável:** `/openapi.json`
+- **Guias:** [API para clientes](docs/API.md) · [Versionamento e depreciação](docs/VERSIONAMENTO.md)
 
-Esse repositório é o backend, uma API REST em Spring Boot. O frontend fica em repositório separado: `desapego-universitario-fe`.
+Marketplace de economia circular para estudantes universitários: anúncios de venda ou doação de
+livros, eletrônicos, móveis e outros itens dentro do campus. Projeto do desafio técnico do
+processo seletivo do Laboratório Vortex (Unifor), etapa VORTEX 2026.2.
 
-## Tecnologias
+Este repositório contém apenas o backend, uma API REST em Spring Boot. O frontend fica no
+repositório separado `desapego-universitario-fe`.
 
-- Java + Spring Boot
-- Spring Data JPA
-- PostgreSQL (hospedado no Render)
-- Spring Security (JWT, `SecurityFilterChain`, `UserDetailsService`, roles e BCrypt)
-- Maven
+---
+
+## Visão geral
+
+A API cobre o ciclo completo do marketplace:
+
+- **Conta:** cadastro com e-mail institucional, verificação, recuperação de senha, login JWT e rotação de refresh token.
+- **Anúncio:** criação, edição, busca paginada com filtros/ordenação, upload de imagens e moderação.
+- **Interação:** favoritos, mensagens entre comprador e vendedor, reserva, conclusão da negociação e avaliações.
+- **Confiança:** denúncias com fila de moderação para administradores.
+- **Engajamento:** notificações no banco com push opcional via Firebase Cloud Messaging.
+- **Operação:** OpenAPI, Actuator, logs estruturados, cache, migrações versionadas e CI.
+
+Rotas públicas: cadastro/login/recuperação, `GET /api/v1/anuncios`, `GET /uploads/**`,
+Swagger/OpenAPI e health checks. Demais rotas exigem `Authorization: Bearer <accessToken>`;
+rotas `/api/v1/admin/**` exigem `ROLE_ADMIN`.
+
+---
+
+## Stack
+
+| Camada | Tecnologia |
+| --- | --- |
+| Linguagem / runtime | Java 21 |
+| Framework | Spring Boot 4.1.0 (Web MVC, Validation, Data JPA, Security, Mail, Cache, Actuator) |
+| Segurança | Spring Security + JWT JJWT 0.12.6, BCrypt, CORS, rate limit por IP |
+| Persistência | PostgreSQL 16, Hibernate, Spring Data JPA, Flyway (V1–V14) |
+| Cache | Caffeine (máx. 500 entradas, TTL de 30 s) |
+| Documentação | springdoc-openapi 3.2.0 (Swagger UI + `/openapi.json`) |
+| Armazenamento | AWS SDK S3 2.31.78 (S3 ou compatível) ou disco local em desenvolvimento |
+| Notificações | Firebase Cloud Messaging (opcional) + persistência de notificações |
+| Build | Maven Wrapper (`./mvnw`), Lombok |
+| Testes | JUnit 5, Mockito, MockMvc, H2 em modo PostgreSQL, Testcontainers |
+| Qualidade | JaCoCo (mínimo 80% em service e controller), SpotBugs, GitHub Actions |
+| Deploy | Dockerfile multi-stage (usuário não root), Docker Compose, Render |
+
+---
+
+## Arquitetura
+
+```mermaid
+flowchart LR
+    Cliente["Cliente Web / Kotlin<br/>Retrofit · Ktor"] -->|HTTPS /api/v1| Borda["Render / Reverse proxy"]
+    Borda --> Filtros["CorrelationIdFilter + SecurityFilterChain<br/>JWT · CORS · Rate limit"]
+    Filtros --> Controller["Controllers<br/>DTO + Bean Validation"]
+    Controller --> Service["Services<br/>regras de negócio"]
+    Service --> Repository["Repositories + Specifications"]
+    Repository --> DB[("PostgreSQL 16<br/>Flyway V1–V14")]
+    Service --> Cache[("Caffeine<br/>TTL 30s")]
+    Service --> Storage{"S3_BUCKET definido?"}
+    Storage -->|não| Local["Disco local<br/>/uploads/**"]
+    Storage -->|sim| S3["Amazon S3 / compatível"]
+    Service --> Mail["SMTP (opcional)"]
+    Service --> FCM["FCM (opcional)"]
+    Service --> Notif[("notificacao")]
+    Borda --> Health["/healthz · /actuator/health/liveness"]
+    Controller --> Docs["springdoc<br/>/openapi.json · /swagger-ui.html"]
+    Filtros --> Logs["Logs JSON (logstash)<br/>correlationId no MDC"]
+```
+
+Fluxo típico de uma listagem pública, incluindo cache e correlation id:
+
+```mermaid
+sequenceDiagram
+    participant C as Cliente
+    participant F as Filtros (correlation id + segurança)
+    participant CT as AnuncioController
+    participant S as AnuncioService
+    participant CA as Caffeine
+    participant DB as PostgreSQL
+
+    C->>F: GET /api/v1/anuncios com q, page=0, size=20
+    F->>F: correlationId = header ou UUID
+    F->>CT: requisição autenticada (Bearer opcional)
+    CT->>S: buscar(AnuncioFiltroDTO)
+    S->>CA: consulta por chave = filtro
+    alt cache hit
+        CA-->>S: PaginadoDTO de AnuncioResponseDTO
+    else cache miss
+        S->>DB: SELECT com filtros + ORDER BY permitido
+        DB-->>S: Page de Anuncio
+        S->>CA: armazena por 30 s
+    end
+    S-->>CT: PaginadoDTO
+    CT-->>C: 200 OK + header X-Correlation-Id
+```
+
+### Estrutura de pacotes
+
+```
+src/main/java/com/marketplace/desapegoUniversitario/
+├── config/       # Security, OpenAPI, cache, Jackson, CORS, mail, FCM, storage, correlation id
+├── controller/   # endpoints REST e contratos de entrada/saída
+├── domain/       # entidades JPA e enums
+├── dto/          # records de request/response (com exemplos no OpenAPI)
+├── exception/    # regras de negócio e GlobalExceptionHandler
+├── mapper/       # conversão entidade -> DTO
+├── repository/   # Spring Data JPA e Specifications de busca
+├── security/     # JwtService, filtros JWT/rate limit, handlers
+├── service/      # regras de negócio e integrações (S3, SMTP, FCM)
+├── util/         # Paginas, helpers
+└── validation/   # validadores customizados
+```
+
+---
+
+## Modelo de dados
+
+```mermaid
+erDiagram
+    USUARIO ||--o{ ANUNCIO : cria
+    USUARIO ||--o{ REFRESH_TOKEN : possui
+    USUARIO ||--o{ USUARIO_TOKEN : possui
+    USUARIO ||--o{ FAVORITO : registra
+    USUARIO ||--o{ MENSAGEM : envia
+    USUARIO ||--o{ MENSAGEM : recebe
+    USUARIO ||--o{ RESERVA : compra
+    USUARIO ||--o{ AVALIACAO : avalia
+    USUARIO ||--o{ AVALIACAO : e_avaliado
+    USUARIO ||--o{ DENUNCIA : registra
+    USUARIO ||--o{ DENUNCIA : resolve
+    USUARIO ||--o{ NOTIFICACAO : recebe
+    USUARIO ||--o{ DISPOSITIVO_FCM : registra
+
+    ANUNCIO ||--o{ ANUNCIO_IMAGEM : contem
+    ANUNCIO ||--o{ FAVORITO : recebe
+    ANUNCIO ||--o{ MENSAGEM : assunto
+    ANUNCIO ||--o{ RESERVA : assunto
+    ANUNCIO ||--o{ AVALIACAO : assunto
+    ANUNCIO ||--o{ DENUNCIA : assunto
+
+    USUARIO {
+        UUID id PK
+        string nome
+        string email UK
+        string senha "hash BCrypt"
+        Role role "USUARIO, ADMIN"
+        boolean email_verificado
+        Instant criado_em
+    }
+    ANUNCIO {
+        UUID id PK
+        UUID usuario_id FK "nullable: ON DELETE SET NULL"
+        string titulo
+        decimal preco
+        string descricao
+        Categoria categoria
+        TipoAnuncio tipo "VENDA, DOACAO"
+        Condicao condicao "NOVO, SEMINOVO, USADO"
+        StatusAnuncio status "ATIVO, RESERVADO, VENDIDO, DOADO, REMOVIDO"
+        string campus
+        string local_retirada
+        boolean moderado
+        Instant criado_em
+        Instant atualizado_em
+        Instant removido_em "soft delete"
+    }
+    ANUNCIO_IMAGEM {
+        UUID id PK
+        UUID anuncio_id FK
+        string chave
+        string url
+        string tipo_conteudo
+        Instant criado_em
+    }
+    REFRESH_TOKEN {
+        UUID id PK
+        UUID usuario_id FK
+        string token_hash UK
+        Instant expira_em
+        Instant revogado_em
+        string substituido_por "rotação"
+        Instant criado_em
+    }
+    USUARIO_TOKEN {
+        UUID id PK
+        UUID usuario_id FK
+        TipoToken tipo "VERIFICACAO_EMAIL, REDEFINICAO_SENHA"
+        string token_hash UK
+        Instant expira_em
+        Instant usado_em
+        Instant criado_em
+    }
+    FAVORITO {
+        UUID id PK
+        UUID usuario_id FK
+        UUID anuncio_id FK
+        Instant criado_em
+    }
+    MENSAGEM {
+        UUID id PK
+        UUID anuncio_id FK
+        UUID remetente_id FK
+        UUID destinatario_id FK
+        string conteudo
+        Instant criado_em
+        Instant lida_em
+    }
+    RESERVA {
+        UUID id PK
+        UUID anuncio_id FK
+        UUID comprador_id FK
+        Instant criado_em
+        Instant cancelada_em
+        Instant concluida_em
+    }
+    AVALIACAO {
+        UUID id PK
+        UUID anuncio_id FK
+        UUID vendedor_id FK
+        UUID avaliador_id FK
+        int nota
+        string comentario
+        Instant criado_em
+    }
+    DENUNCIA {
+        UUID id PK
+        UUID anuncio_id FK
+        UUID denunciante_id FK
+        UUID resolvida_por FK "nullable"
+        string motivo
+        string descricao
+        StatusDenuncia status "PENDENTE, RESOLVIDA, REJEITADA"
+        Instant resolvida_em
+        Instant criado_em
+    }
+    NOTIFICACAO {
+        UUID id PK
+        UUID destinatario_id FK
+        string titulo
+        string mensagem
+        string tipo
+        UUID referencia_id
+        Instant lida_em
+        Instant criado_em
+    }
+    DISPOSITIVO_FCM {
+        UUID id PK
+        UUID usuario_id FK
+        string token UK
+        Instant criado_em
+    }
+```
+
+Convenções do modelo: IDs são UUID; datas são `Instant` gravadas em `TIMESTAMP WITH TIME ZONE`
+e serializadas como ISO 8601 UTC (`...Z`); enums usam `@Enumerated(EnumType.STRING)` em
+`UPPER_SNAKE_CASE` com `CHECK` constraints; a remoção de anúncio é lógica (`removido_em`).
+
+As migrações Flyway (`src/main/resources/db/migration`) evoluíram de `V1__baseline` até
+`V14__indices_buscas`. Todas são aditivas: `V13` normaliza enums e adiciona constraints sem
+recriar tabelas; `V14` cria índices para listagem por `removido_em/criado_em`, categoria,
+preço, status e usuário. O Hibernate roda com `ddl-auto=validate` e o Flyway com
+`clean-disabled=true`.
+
+---
 
 ## Como rodar
 
-Pré requisitos: Java 21+, Maven (ou usa o wrapper `./mvnw`, que já vem no repositório), e uma instância PostgreSQL acessível (local ou na nuvem).
+### Local
 
-1. Cria um arquivo `.env` a partir do exemplo e ajusta os valores:
-   ```bash
-   cp .env.example .env
-   ```
-   Variáveis principais: `SPRING_PROFILES_ACTIVE`, `PORT`, `JDBC_URL`, `DB_USERNAME`, `DB_PASSWORD`, `CORS_ALLOWED_ORIGINS`, `JWT_SECRET` (obrigatório em produção, mínimo 32 bytes), `EMAIL_DOMINIOS_INSTITUCIONAIS`, `MAIL_HOST`/`MAIL_USERNAME`/`MAIL_PASSWORD` (opcionais; sem eles nada é enviado), `RATE_LIMIT_LOGIN` e `RATE_LIMIT_CADASTRO`.
-2. Roda a aplicação:
+Pré-requisitos: JDK 21+, PostgreSQL acessível e o Maven Wrapper incluído no repositório.
 
 ```bash
+cp .env.example .env          # ajuste JDBC_URL, DB_USERNAME, DB_PASSWORD e JWT_SECRET
 ./mvnw spring-boot:run
 ```
 
-A API sobe em `http://localhost:8080`. O schema é gerenciado pelo Flyway (`src/main/resources/db/migration`) e validado pelo Hibernate (`ddl-auto=validate`). Em bancos já existentes, o Flyway cria o baseline automaticamente; em bancos novos, a migration `V1` é aplicada.
+A API sobe em `http://localhost:8080`. Para subir só o banco com Docker:
 
-### Perfis
-
-| Perfil | Uso | Banco |
-|---|---|---|
-| `dev` | Desenvolvimento local | PostgreSQL via `JDBC_URL` |
-| `test` | Testes automatizados | H2 em memória (modo PostgreSQL) |
-| `prod` | Produção | PostgreSQL via `JDBC_URL` |
-
-O perfil padrão é `dev`. Em produção, defina `SPRING_PROFILES_ACTIVE=prod` (o `Dockerfile` já define esse valor). Todas as configurações sensíveis vêm de variáveis de ambiente; nenhum segredo fica versionado.
-
-### Health check no Render
-
-Configure o **Health Check Path** do serviço no Render como `/healthz`. Esse endpoint é público e
-responde `200 {"status":"ok"}` sem consultar banco ou dependências externas, evitando falsos negativos
-durante o cold start (enquanto a JVM inicializa ou o PostgreSQL ainda está subindo). Para diagnóstico
-completo use `/actuator/health` e para liveness use `/actuator/health/liveness`.
-
-## Endpoints
-
-### Anúncios
-
-| Método | Rota | Descrição |
-|---|---|---|
-| POST | `/api/v1/anuncios` | Cria um anúncio |
-| GET | `/api/v1/anuncios` | Lista todos os anúncios |
-| GET | `/api/v1/anuncios/categoria/{categoria}` | Lista anúncios de uma categoria (`LIVROS`, `ELETRONICOS`, `ENGENHARIA`, `COMPUTACAO`, `MOVEIS`, `VESTUARIO`, `PAPELARIA`, `OUTROS`) |
-| DELETE | `/api/v1/anuncios/{id}` | Deleta um anúncio pelo id |
-
-### Usuários
-
-| Método | Rota | Descrição |
-|---|---|---|
-| POST | `/api/v1/usuarios/cadastro` | Solicita cadastro (somente domínios institucionais configurados) |
-| POST | `/api/v1/usuarios/login` | Autentica e devolve `accessToken` + `refreshToken` |
-| POST | `/api/v1/usuarios/verificar-email` | Confirma o e-mail com o token recebido |
-| POST | `/api/v1/usuarios/reenviar-verificacao` | Reenvia o token de verificação |
-| POST | `/api/v1/usuarios/recuperar-senha` | Envia token de redefinição por e-mail |
-| POST | `/api/v1/usuarios/redefinir-senha` | Define uma nova senha com o token |
-
-### Autenticação e autorização
-
-| Método | Rota | Descrição |
-|---|---|---|
-| POST | `/api/v1/auth/refresh` | Rotaciona o refresh token (o antigo é revogado) |
-| POST | `/api/v1/auth/logout` | Revoga os refresh tokens da sessão (requer Bearer token) |
-| PUT | `/api/v1/anuncios/{id}` | Edita anúncio (somente o dono) |
-| DELETE | `/api/v1/anuncios/{id}` | Remove anúncio (somente o dono) |
-| PATCH | `/api/v1/admin/anuncios/{id}/moderacao` | Modera anúncio (somente ADMIN) |
-| DELETE | `/api/v1/admin/anuncios/{id}` | Remove anúncio por moderação (somente ADMIN) |
-
-Access tokens expiram em 15 minutos (`JWT_ACCESS_TOKEN_TTL`); refresh tokens em 7 dias (`JWT_REFRESH_TOKEN_TTL`), com rotação e revogação. Cadastros recebem `ROLE_USUARIO`; para promover a ADMIN, atualize o `role` diretamente no banco. Todas as rotas são versionadas em `/api/v1`, retornam e recebem JSON. Senhas são armazenadas com hash (BCrypt) e nunca aparecem em respostas ou logs.
-
-### Formato de erro
-
-Erros seguem um formato único, com mensagens em português e detalhes por campo quando aplicável:
-
-```json
-{
-  "timestamp": "2026-11-22T12:00:00-03:00",
-  "status": 400,
-  "codigo": "VALIDACAO",
-  "mensagem": "Erro de validação",
-  "caminho": "/api/v1/anuncios",
-  "erros": [
-    { "campo": "titulo", "mensagem": "O título é obrigatório" }
-  ]
-}
+```bash
+docker compose up -d db
 ```
+
+Para executar o jar já empacotado:
+
+```bash
+./mvnw package -DskipTests
+java -jar target/desapegoUniversitario-0.0.1-SNAPSHOT.jar
+```
+
+**Perfis:** `dev` (padrão, PostgreSQL local), `test` (H2 em memória) e `prod` (PostgreSQL de
+produção). O perfil é definido por `SPRING_PROFILES_ACTIVE`.
+
+### Docker
+
+O `Dockerfile` é multi-stage: compila com Maven/Temurin 21 e gera uma imagem final com JRE,
+usuário não root (UID/GID 10001), storage em `/tmp` e healthcheck em `/healthz`.
+
+```bash
+docker compose up -d --build      # API + PostgreSQL
+docker compose logs -f api
+docker compose down               # mantém o volume postgres-data
+docker compose down -v            # remove também o volume
+```
+
+A API fica em `http://localhost:8080`. Variáveis como `API_PORT`, `DB_PORT`, `DB_NAME`,
+`DB_USERNAME`, `DB_PASSWORD` e `JWT_SECRET` são lidas do `.env` pelo Compose.
+
+**Render:** configure o *Health Check Path* como `/healthz`. Ele responde
+`200 {"status":"ok"}` sem tocar banco ou dependências externas, evitando falsos negativos no
+cold start. Para diagnóstico completo, use `/actuator/health`; para liveness,
+`/actuator/health/liveness`.
+
+### Testes
+
+```bash
+./mvnw test                                      # suíte completa + relatório JaCoCo
+./mvnw verify                                    # build + testes + verificação de cobertura
+./mvnw -DskipTests compile spotbugs:check        # análise estática
+```
+
+- Testes unitários com JUnit 5 e Mockito cobrem as regras dos services.
+- Testes de integração usam MockMvc com H2 em modo PostgreSQL; o teste com Testcontainers usa
+  PostgreSQL real e é ignorado automaticamente quando não há Docker disponível (executa no CI).
+- O JaCoCo falha o build se a cobertura de linha em `service` ou `controller` ficar abaixo de 80%.
+- Relatórios: `target/site/jacoco/index.html` e `target/site/spotbugs.html`.
+
+---
+
+## Variáveis de ambiente
+
+A maioria das variáveis está em [`.env.example`](.env.example); as demais têm default em
+`src/main/resources/application.properties`. Nenhum segredo é versionado.
+
+| Variável | Default | Uso |
+| --- | --- | --- |
+| `SPRING_PROFILES_ACTIVE` | `dev` | Perfil ativo (`dev`, `test`, `prod`) |
+| `PORT` | `8080` | Porta HTTP |
+| `JDBC_URL`, `DB_USERNAME`, `DB_PASSWORD` | — | Conexão PostgreSQL (obrigatórios em `prod`) |
+| `DB_POOL_MAX_SIZE`, `DB_POOL_MIN_IDLE`, `DB_POOL_CONNECTION_TIMEOUT_MS` | `10`, `2`, `30000` | Pool HikariCP |
+| `JDBC_TIME_ZONE` | `UTC` | Time zone JDBC |
+| `JWT_SECRET` | vazio | Segredo HS256 (obrigatório em produção, mínimo 32 bytes) |
+| `JWT_ACCESS_TOKEN_TTL`, `JWT_REFRESH_TOKEN_TTL` | `PT15M`, `P7D` | Validade dos tokens |
+| `EMAIL_DOMINIOS_INSTITUCIONAIS` | `edu.br,edu,ac.br` | Domínios aceitos no cadastro |
+| `RATE_LIMIT_LOGIN`, `RATE_LIMIT_CADASTRO`, `RATE_LIMIT_JANELA` | `5`, `3`, `PT1M` | Limites por IP |
+| `MAIL_HOST`, `MAIL_PORT`, `MAIL_USERNAME`, `MAIL_PASSWORD`, `MAIL_FROM` | vazios / `587` | SMTP; sem `MAIL_HOST` nada é enviado |
+| `MAIL_SMTP_AUTH`, `MAIL_STARTTLS` | `true` | Autenticação/TLS do SMTP |
+| `FRONTEND_URL` | `http://localhost:5173` | URL usada nos links de e-mail |
+| `EMAIL_VERIFICATION_TTL`, `PASSWORD_RESET_TTL` | `PT24H`, `PT1H` | Validade dos tokens de e-mail |
+| `S3_BUCKET`, `S3_REGION`, `S3_ENDPOINT`, `S3_ACCESS_KEY`, `S3_SECRET_KEY`, `S3_PREFIX` | vazios / `us-east-1` / `anuncios` | Storage; sem bucket, usa disco local |
+| `STORAGE_LOCAL_DIR`, `STORAGE_MAX_IMAGENS`, `STORAGE_MAX_TAMANHO` | `/tmp/desapego-uploads`, `5`, `2MB` | Limites de upload local |
+| `MULTIPART_MAX_FILE_SIZE`, `MULTIPART_MAX_REQUEST_SIZE` | `10MB`, `25MB` | Limites de infra do multipart |
+| `FCM_CREDENTIALS`, `FCM_PROJECT_ID`, `FCM_SCOPE`, `FCM_OAUTH_URL`, `FCM_SEND_URL` | vazios / URLs padrão FCM | Push opcional; sem credencial, apenas notificação no banco |
+| `JPA_SHOW_SQL`, `JPA_FORMAT_SQL`, `SQL_LOG_LEVEL` | `false`, `false`, `WARN` | Logs SQL (nunca ligar bind de parâmetros) |
+| `LOG_FORMAT`, `LOG_LEVEL_ROOT`, `APP_VERSION` | `logstash`, `INFO`, `1.0.0` | Logs JSON e metadados do `/actuator/info` |
+| `OPENAPI_ENABLED`, `SWAGGER_UI_ENABLED` | `true` | Documentação da API |
+| `CORS_ALLOWED_ORIGINS` | `http://localhost:5173` | Origens permitidas (separadas por vírgula) |
+| `FORWARD_HEADERS_STRATEGY` | `framework` | Headers proxy (Render) |
+| `API_PORT`, `DB_PORT`, `DB_NAME` | `8080`, `5432`, `desapego_universitario` | Portas/nome do banco no Docker Compose |
+
+---
+
+## Endpoints principais
+
+Documentação completa, payloads e códigos de resposta em [docs/API.md](docs/API.md) e no Swagger UI.
+
+### Conta e autenticação
+
+| Método | Rota | Observação |
+| --- | --- | --- |
+| POST | `/api/v1/usuarios/cadastro` | Público; exige e-mail institucional |
+| POST | `/api/v1/usuarios/verificar-email` | Público |
+| POST | `/api/v1/usuarios/reenviar-verificacao` | Público |
+| POST | `/api/v1/usuarios/recuperar-senha` | Público |
+| POST | `/api/v1/usuarios/redefinir-senha` | Público |
+| POST | `/api/v1/auth/login` | Público; retorna access + refresh token |
+| POST | `/api/v1/auth/refresh` | Público; rotaciona o refresh token |
+| POST | `/api/v1/auth/logout` | Bearer; revoga os refresh tokens |
+
+### Anúncios e imagens
+
+| Método | Rota | Observação |
+| --- | --- | --- |
+| GET | `/api/v1/anuncios` | Público; `q`, `categoria`, `tipo`, `condicao`, `status`, `precoMin`, `precoMax`, `campus`, `page`, `size`, `sort` |
+| GET | `/api/v1/anuncios/{id}` | Público |
+| GET | `/api/v1/anuncios/categoria/{categoria}` | Público |
+| POST | `/api/v1/anuncios` | Bearer |
+| PUT / PATCH | `/api/v1/anuncios/{id}` | Bearer; somente o dono |
+| DELETE | `/api/v1/anuncios/{id}` | Bearer; somente o dono (soft delete) |
+| POST | `/api/v1/anuncios/{id}/imagens` | Bearer; `multipart/form-data`, campo `imagens`, até 5 imagens de 2 MB |
+| GET / DELETE | `/api/v1/anuncios/{id}/imagens[/{imagemId}]` | Bearer; somente o dono |
+
+### Interação e perfil
+
+| Método | Rota | Observação |
+| --- | --- | --- |
+| POST / DELETE | `/api/v1/anuncios/{id}/favoritos` | Bearer |
+| GET | `/api/v1/usuarios/me/favoritos` | Bearer; paginado |
+| POST / GET | `/api/v1/anuncios/{id}/mensagens` | Bearer; conversa do anúncio |
+| PATCH | `/api/v1/mensagens/{id}/lida` | Bearer |
+| POST / DELETE | `/api/v1/anuncios/{id}/reserva` | Bearer |
+| POST | `/api/v1/anuncios/{id}/conclusao` | Bearer |
+| POST | `/api/v1/anuncios/{id}/avaliacoes` | Bearer |
+| GET | `/api/v1/usuarios/{id}/avaliacoes` | Público |
+| GET / PATCH | `/api/v1/usuarios/me` | Bearer |
+| GET | `/api/v1/usuarios/me/anuncios` | Bearer; histórico paginado |
+| POST | `/api/v1/anuncios/{id}/denuncias` | Bearer |
+
+### Notificações, moderação e operação
+
+| Método | Rota | Observação |
+| --- | --- | --- |
+| GET | `/api/v1/notificacoes` e `/nao-lidas` | Bearer; paginado |
+| PATCH | `/api/v1/notificacoes/{id}/lida` | Bearer |
+| POST / DELETE | `/api/v1/notificacoes/dispositivo` | Bearer; token FCM |
+| GET | `/api/v1/admin/denuncias` | ADMIN; paginado |
+| POST | `/api/v1/admin/denuncias/{id}/resolucao` | ADMIN |
+| PATCH | `/api/v1/admin/anuncios/{id}/moderacao` | ADMIN |
+| DELETE | `/api/v1/admin/anuncios/{id}` | ADMIN |
+| GET | `/healthz` | Health leve (Render) |
+| GET | `/actuator/health`, `/actuator/info`, `/actuator/metrics` | Observabilidade |
+| GET | `/openapi.json`, `/swagger-ui.html` | Documentação |
+
+Paginações usam `page` (base 0), `size` (1–100, padrão 20) e o envelope `PaginadoDTO<T>` com
+`content`, `page`, `size`, `totalElements`, `totalPages`, `first` e `last`. Erros seguem o
+`ErroResponse` (`timestamp`, `status`, `codigo`, `mensagem`, `caminho`, `erros`); clientes devem
+tratar pelo `codigo`, nunca pela mensagem.
+
+---
+
+## Decisões técnicas
+
+- **DTOs nas bordas:** entidades nunca são expostas diretamente; `Usuario` jamais trafega com a senha, e os DTOs carregam exemplos no OpenAPI.
+- **UUID e datas canonizadas:** IDs UUID e `Instant` em UTC eliminam ambiguidade de timezone entre cliente, API e banco.
+- **Enums estáveis:** persistência como string em `UPPER_SNAKE_CASE`, aceitação case-insensitive na entrada e `CHECK` constraints no banco.
+- **Migrações aditivas:** Flyway `V1`–`V14` sem destruir dados; `V13` normaliza enums e `V14` cria índices para os filtros mais usados.
+- **Busca controlada:** `Specification` com whitelist de ordenação e validação de `page`/`size`/faixa de preço, evitando SQL dinâmico arbitrário e consultas custosas.
+- **Cache curto:** Caffeine com TTL de 30 s nas listagens públicas e invalidação em escritas; dados obsoletos ficam limitados a essa janela.
+- **Tokens com rotação:** access token de 15 min e refresh de 7 dias de uso único; reutilização revoga a família de tokens. Hash de tokens e senhas nunca é logado.
+- **Integrações opcionais:** sem `S3_BUCKET` o storage é local; sem `FCM_CREDENTIALS` as notificações ficam apenas no banco; sem `MAIL_HOST` nenhum e-mail é enviado.
+- **Contrato publicado:** `/openapi.json` é a fonte para gerar clientes Kotlin; mudanças incompatíveis exigem nova versão de URL, conforme `docs/VERSIONAMENTO.md`.
+- **Observabilidade:** correlation id gerado/propagado por requisição no header `X-Correlation-Id` e no MDC; logs no formato estruturado `logstash`; Actuator expõe health/info/metrics.
+- **Deploy e CI:** imagem multi-stage com usuário não root e healthcheck, Compose com PostgreSQL, e pipeline GitHub Actions com build, testes, JaCoCo, SpotBugs e build/push da imagem.
+- **Cold start:** `/healthz` responde sem consultar dependências, separando "processo vivo" de "dependências prontas" (`/actuator/health`).
+
+---
 
 <p align=center>Diário de Bordo da IA</p>
 
@@ -116,5 +464,16 @@ Percebi que tinha acumulado várias mudanças (entidade, service, repository, DT
 Exemplo 3 — avaliação de escopo (autenticação JWT):
 Não conhecia JWT antes desse desafio. Pedi pra IA explicar o conceito e implementei uma classe `JwtUtil` funcional (geração e validação de token) com revisão da IA. Depois, avaliando o tempo restante e o que ainda faltava (frontend/PWA obrigatório, ainda não iniciado), decidi remover o JWT do escopo do projeto.
 
+Exemplo 4 — contrato estável e documentação:
+Solicitei a geração do `openapi.json` com exemplos e códigos de resposta, defini formato único de erro e pedi revisão do contrato antes de cada merge. A IA apontou inconsistências entre datas, enums e paginação; padronizei ISO 8601 UTC, enums canônicos e o envelope `PaginadoDTO`, e registrei as regras em `docs/VERSIONAMENTO.md`.
+
+Exemplo 5 — qualidade e infraestrutura:
+Pedi cobertura mínima de 80% em service e controller com JaCoCo, Testcontainers para PostgreSQL e análise estática no CI. A IA sugeriu excluir falsos positivos de injeção do Spring no SpotBugs; mantive o filtro restrito a padrões conhecidos e corrigi o problema real de `getParent()` nullable no storage local.
+
+Exemplo 6 — deploy e cold start:
+Solicitei Dockerfile multi-stage com usuário não root, Compose com PostgreSQL e um health check leve para o Render. Defini `/healthz` separado do `/actuator/health` para não confundir "processo vivo" com "banco pronto", e documentei o caminho no README.
+
 ### Reflexão Crítica
 A implementação de JWT chegou a funcionar, mas percebi que mantê-la comprometeria o tempo necessário pra entregar o restante do desafio dentro do prazo. Removi essa parte do projeto, mantendo cadastro e login com validação de email/senha (hash via BCrypt), sem geração de token. Foi um momento de precisar avaliar criticamente o que a IA ajudou a construir — só porque algo funciona não significa que cabe no escopo e no tempo disponíveis.
+
+Reflexão adicional (Fases 4 e 5): o JWT voltou ao escopo depois que o core do marketplace ficou estável, com rotação de refresh e revogação por família. Decisões posteriores priorizaram contrato previsível para o cliente Kotlin, migrações sem perda de dados e observabilidade desde o primeiro deploy — cada mudança de contrato passou a ser revisada no `openapi.json` e acompanhada de teste de integração.
