@@ -43,14 +43,16 @@ public class AutenticacaoService {
 
     @Transactional
     public TokenResponseDTO login(LoginDTO dto) {
+        String email = UsuarioService.normalizar(dto.email());
         try {
             authenticationManager.authenticate(
-                    new UsernamePasswordAuthenticationToken(dto.email(), dto.senha()));
+                    new UsernamePasswordAuthenticationToken(email, dto.senha()));
         } catch (AuthenticationException e) {
             throw new CredenciaisInvalidasException("E-mail ou senha inválidos");
         }
 
-        Usuario usuario = usuarioRepository.findByEmail(dto.email())
+        Usuario usuario = usuarioRepository.findByEmail(email)
+                .filter(Usuario::isEmailVerificado)
                 .orElseThrow(() -> new CredenciaisInvalidasException("E-mail ou senha inválidos"));
         return emitirTokens(usuario);
     }

@@ -38,6 +38,8 @@ public class SecurityConfig {
                 .authorizeHttpRequests(regras -> regras
                         .requestMatchers(HttpMethod.POST,
                                 "/api/v1/usuarios/cadastro", "/api/v1/usuarios/login",
+                                "/api/v1/usuarios/verificar-email", "/api/v1/usuarios/reenviar-verificacao",
+                                "/api/v1/usuarios/recuperar-senha", "/api/v1/usuarios/redefinir-senha",
                                 "/api/v1/auth/login", "/api/v1/auth/refresh").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/anuncios", "/api/v1/anuncios/**").permitAll()
                         .requestMatchers("/api/v1/admin/**").hasRole("ADMIN")

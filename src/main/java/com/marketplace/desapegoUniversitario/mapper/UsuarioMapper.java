@@ -16,10 +16,12 @@ public final class UsuarioMapper {
         usuario.setEmail(dto.email());
         usuario.setSenha(senhaHash);
         usuario.setRole(Role.USUARIO);
+        usuario.setEmailVerificado(false);
         return usuario;
     }
 
     public static UsuarioResponseDTO toResponse(Usuario usuario) {
-        return new UsuarioResponseDTO(usuario.getNome(), usuario.getEmail(), usuario.getRole().name());
+        return new UsuarioResponseDTO(
+                usuario.getNome(), usuario.getEmail(), usuario.getRole().name(), usuario.isEmailVerificado());
     }
 }

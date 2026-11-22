@@ -23,12 +23,27 @@ public final class TestAutenticacao {
     }
 
     public static void cadastrar(MockMvc mockMvc, String email) throws Exception {
+        cadastrarSemVerificar(mockMvc, email);
+        verificarEmail(mockMvc, email);
+    }
+
+    public static void cadastrarSemVerificar(MockMvc mockMvc, String email) throws Exception {
         mockMvc.perform(post("/api/v1/usuarios/cadastro")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {"nome":"Aluno Teste","email":"%s","senha":"%s"}
                                 """.formatted(email, SENHA)))
                 .andExpect(status().isOk());
+    }
+
+    public static void verificarEmail(MockMvc mockMvc, String email) throws Exception {
+        String token = CapturingEmailSender.ultimoTokenPara(email);
+        mockMvc.perform(post("/api/v1/usuarios/verificar-email")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"token":"%s"}
+                                """.formatted(token)))
+                .andExpect(status().isNoContent());
     }
 
     public static String login(MockMvc mockMvc, String email) throws Exception {

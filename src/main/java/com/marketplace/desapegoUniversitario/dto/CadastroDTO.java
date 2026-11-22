@@ -3,6 +3,7 @@ package com.marketplace.desapegoUniversitario.dto;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
+import com.marketplace.desapegoUniversitario.validation.SenhaForte;
 
 public record CadastroDTO(
         @NotBlank(message = "O nome é obrigatório")
@@ -16,6 +17,7 @@ public record CadastroDTO(
 
         @NotBlank(message = "A senha é obrigatória")
         @Size(min = 8, max = 72, message = "A senha deve ter entre 8 e 72 caracteres")
+        @SenhaForte
         String senha
 ) {
 }
