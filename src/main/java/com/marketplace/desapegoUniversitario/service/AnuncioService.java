@@ -2,7 +2,9 @@ package com.marketplace.desapegoUniversitario.service;
 
 import com.marketplace.desapegoUniversitario.domain.Anuncio;
 import com.marketplace.desapegoUniversitario.domain.Categoria;
+import com.marketplace.desapegoUniversitario.domain.StatusAnuncio;
 import com.marketplace.desapegoUniversitario.domain.Usuario;
+import com.marketplace.desapegoUniversitario.dto.AnuncioPatchDTO;
 import com.marketplace.desapegoUniversitario.dto.AnuncioRequestDTO;
 import com.marketplace.desapegoUniversitario.dto.AnuncioResponseDTO;
 import com.marketplace.desapegoUniversitario.exception.RecursoNaoEncontradoException;
@@ -32,11 +34,20 @@ public class AnuncioService {
     public AnuncioResponseDTO criar(AnuncioRequestDTO dto, String emailUsuario) {
         Usuario usuario = buscarUsuario(emailUsuario);
         Anuncio anuncio = AnuncioMapper.toEntity(dto, usuario);
-        return AnuncioMapper.toResponse(anuncioRepository.save(anuncio));
+        return AnuncioMapper.toResponse(salvar(anuncio));
     }
 
     @Transactional
     public AnuncioResponseDTO atualizar(UUID id, AnuncioRequestDTO dto, String emailUsuario) {
+        Anuncio anuncio = buscarAnuncio(id);
+        garantirDono(anuncio, buscarUsuario(emailUsuario));
+
+        AnuncioMapper.aplicarCampos(anuncio, dto);
+        return AnuncioMapper.toResponse(salvar(anuncio));
+    }
+
+    @Transactional
+    public AnuncioResponseDTO atualizarParcial(UUID id, AnuncioPatchDTO dto, String emailUsuario) {
         Anuncio anuncio = buscarAnuncio(id);
         garantirDono(anuncio, buscarUsuario(emailUsuario));
 
@@ -51,31 +62,38 @@ public class AnuncioService {
 
     @Transactional(readOnly = true)
     public List<AnuncioResponseDTO> listarTodos() {
-        return AnuncioMapper.toResponseList(anuncioRepository.findAll());
+        return AnuncioMapper.toResponseList(anuncioRepository.findAllByRemovidoEmIsNull());
     }
 
     @Transactional
     public void deletarPorID(UUID id, String emailUsuario) {
         Anuncio anuncio = buscarAnuncio(id);
         garantirDono(anuncio, buscarUsuario(emailUsuario));
-        anuncioRepository.delete(anuncio);
+        removerLogicamente(anuncio);
     }
 
     @Transactional(readOnly = true)
     public List<AnuncioResponseDTO> listarPorCategoria(Categoria categoria) {
-        return AnuncioMapper.toResponseList(anuncioRepository.findByCategoria(categoria));
+        return AnuncioMapper.toResponseList(
+                anuncioRepository.findByCategoriaAndRemovidoEmIsNull(categoria));
     }
 
     @Transactional
     public AnuncioResponseDTO moderar(UUID id, boolean moderado) {
         Anuncio anuncio = buscarAnuncio(id);
         anuncio.setModerado(moderado);
-        return AnuncioMapper.toResponse(anuncioRepository.save(anuncio));
+        return AnuncioMapper.toResponse(salvar(anuncio));
     }
 
     @Transactional
     public void removerPorModeracao(UUID id) {
-        anuncioRepository.delete(buscarAnuncio(id));
+        removerLogicamente(buscarAnuncio(id));
+    }
+
+    private void removerLogicamente(Anuncio anuncio) {
+        anuncio.setRemovidoEm(Instant.now());
+        anuncio.setStatus(StatusAnuncio.REMOVIDO);
+        salvar(anuncio);
     }
 
     private Anuncio salvar(Anuncio anuncio) {
@@ -84,7 +102,7 @@ public class AnuncioService {
     }
 
     private Anuncio buscarAnuncio(UUID id) {
-        return anuncioRepository.findById(id)
+        return anuncioRepository.findByIdAndRemovidoEmIsNull(id)
                 .orElseThrow(() -> new RecursoNaoEncontradoException("Anúncio não encontrado"));
     }
 

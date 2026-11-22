@@ -1,15 +1,19 @@
 package com.marketplace.desapegoUniversitario.mapper;
 
 import com.marketplace.desapegoUniversitario.domain.Anuncio;
+import com.marketplace.desapegoUniversitario.domain.Categoria;
 import com.marketplace.desapegoUniversitario.domain.Condicao;
 import com.marketplace.desapegoUniversitario.domain.StatusAnuncio;
 import com.marketplace.desapegoUniversitario.domain.TipoAnuncio;
 import com.marketplace.desapegoUniversitario.domain.Usuario;
+import com.marketplace.desapegoUniversitario.dto.AnuncioPatchDTO;
 import com.marketplace.desapegoUniversitario.dto.AnuncioRequestDTO;
 import com.marketplace.desapegoUniversitario.dto.AnuncioResponseDTO;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.Optional;
+import java.util.function.Consumer;
 
 public final class AnuncioMapper {
 
@@ -39,9 +43,22 @@ public final class AnuncioMapper {
         anuncio.setContato(dto.contato());
         anuncio.setTipo(dto.tipo() == null ? TipoAnuncio.VENDA : dto.tipo());
         anuncio.setCondicao(dto.condicao() == null ? Condicao.USADO : dto.condicao());
-        anuncio.setCampus(dto.campus() == null || dto.campus().isBlank() ? CAMPUS_PADRAO : dto.campus().trim());
-        anuncio.setLocalRetirada(dto.localRetirada() == null || dto.localRetirada().isBlank()
-                ? LOCAL_PADRAO : dto.localRetirada().trim());
+        anuncio.setCampus(textoOuPadrao(dto.campus(), CAMPUS_PADRAO));
+        anuncio.setLocalRetirada(textoOuPadrao(dto.localRetirada(), LOCAL_PADRAO));
+    }
+
+    public static void aplicarCampos(Anuncio anuncio, AnuncioPatchDTO dto) {
+        aplicarSePresente(dto.titulo(), anuncio::setTitulo);
+        aplicarSePresente(dto.preco(), anuncio::setPreco);
+        aplicarSePresente(dto.descricao(), anuncio::setDescricao);
+        aplicarSePresente(dto.imagem(), anuncio::setImagem);
+        aplicarSePresente(dto.categoria(), anuncio::setCategoria);
+        aplicarSePresente(dto.contato(), anuncio::setContato);
+        aplicarSePresente(dto.tipo(), anuncio::setTipo);
+        aplicarSePresente(dto.condicao(), anuncio::setCondicao);
+        aplicarSePresente(dto.campus(), valor -> anuncio.setCampus(textoOuPadrao(valor, CAMPUS_PADRAO)));
+        aplicarSePresente(dto.localRetirada(),
+                valor -> anuncio.setLocalRetirada(textoOuPadrao(valor, LOCAL_PADRAO)));
     }
 
     public static AnuncioResponseDTO toResponse(Anuncio anuncio) {
@@ -68,5 +85,15 @@ public final class AnuncioMapper {
         return anuncios.stream()
                 .map(AnuncioMapper::toResponse)
                 .toList();
+    }
+
+    private static <T> void aplicarSePresente(Optional<T> valor, Consumer<T> consumidor) {
+        if (valor != null && valor.isPresent()) {
+            consumidor.accept(valor.get());
+        }
+    }
+
+    private static String textoOuPadrao(String valor, String padrao) {
+        return valor == null || valor.isBlank() ? padrao : valor.trim();
     }
 }

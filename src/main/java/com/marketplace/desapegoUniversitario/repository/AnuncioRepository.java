@@ -5,8 +5,15 @@ import com.marketplace.desapegoUniversitario.domain.Categoria;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 public interface AnuncioRepository extends JpaRepository<Anuncio, UUID> {
     List<Anuncio> findByCategoria(Categoria categoria);
+
+    List<Anuncio> findAllByRemovidoEmIsNull();
+
+    List<Anuncio> findByCategoriaAndRemovidoEmIsNull(Categoria categoria);
+
+    Optional<Anuncio> findByIdAndRemovidoEmIsNull(UUID id);
 }
