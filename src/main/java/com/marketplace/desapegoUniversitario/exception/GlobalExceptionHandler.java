@@ -105,7 +105,7 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(DataIntegrityViolationException.class)
     public ResponseEntity<ErroResponse> tratarIntegridade(DataIntegrityViolationException ex,
                                                           HttpServletRequest request) {
-        log.warn("Violação de integridade ao processar {}: {}", request.getRequestURI(), ex.getMostSpecificCause().getMessage());
+        log.warn("Violação de integridade ao processar {}", request.getRequestURI());
         return resposta(HttpStatus.CONFLICT, "CONFLITO_DE_DADOS",
                 "Não foi possível concluir a operação por conflito de dados", request, List.of());
     }
@@ -119,7 +119,8 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ErroResponse> tratarErroInesperado(Exception ex, HttpServletRequest request) {
-        log.error("Erro inesperado ao processar {}", request.getRequestURI(), ex);
+        log.error("Erro inesperado (tipo={}) ao processar {}", ex.getClass().getSimpleName(),
+                request.getRequestURI());
         return resposta(HttpStatus.INTERNAL_SERVER_ERROR, "ERRO_INTERNO",
                 "Erro interno no servidor", request, List.of());
     }
