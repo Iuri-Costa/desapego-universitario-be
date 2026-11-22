@@ -90,6 +90,6 @@ class CrudAnuncioIntegrationTest {
 
         mockMvc.perform(get("/api/v1/anuncios"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$[?(@.id == '" + id + "')]").doesNotExist());
+                .andExpect(jsonPath("$.content[?(@.id == '" + id + "')]").doesNotExist());
     }
 }

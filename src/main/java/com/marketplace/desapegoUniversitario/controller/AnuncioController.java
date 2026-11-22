@@ -1,9 +1,14 @@
 package com.marketplace.desapegoUniversitario.controller;
 
 import com.marketplace.desapegoUniversitario.domain.Categoria;
+import com.marketplace.desapegoUniversitario.domain.Condicao;
+import com.marketplace.desapegoUniversitario.domain.StatusAnuncio;
+import com.marketplace.desapegoUniversitario.domain.TipoAnuncio;
 import com.marketplace.desapegoUniversitario.dto.AnuncioPatchDTO;
 import com.marketplace.desapegoUniversitario.dto.AnuncioRequestDTO;
 import com.marketplace.desapegoUniversitario.dto.AnuncioResponseDTO;
+import com.marketplace.desapegoUniversitario.dto.AnuncioFiltroDTO;
+import com.marketplace.desapegoUniversitario.dto.PaginadoDTO;
 import com.marketplace.desapegoUniversitario.service.AnuncioService;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
@@ -16,8 +21,10 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.UUID;
 
@@ -37,8 +44,20 @@ public class AnuncioController {
     }
 
     @GetMapping
-    public List<AnuncioResponseDTO> listarTodos() {
-        return anuncioService.listarTodos();
+    public PaginadoDTO<AnuncioResponseDTO> buscar(
+            @RequestParam(name = "q", required = false) String texto,
+            @RequestParam(name = "categoria", required = false) Categoria categoria,
+            @RequestParam(name = "tipo", required = false) TipoAnuncio tipo,
+            @RequestParam(name = "precoMin", required = false) BigDecimal precoMin,
+            @RequestParam(name = "precoMax", required = false) BigDecimal precoMax,
+            @RequestParam(name = "condicao", required = false) Condicao condicao,
+            @RequestParam(name = "campus", required = false) String campus,
+            @RequestParam(name = "status", required = false) StatusAnuncio status,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size,
+            @RequestParam(defaultValue = "criadoEm,desc") String sort) {
+        return anuncioService.buscar(new AnuncioFiltroDTO(
+                texto, categoria, tipo, precoMin, precoMax, condicao, campus, status, page, size, sort));
     }
 
     @GetMapping("/{id}")

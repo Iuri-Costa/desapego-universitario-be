@@ -45,7 +45,8 @@ class ApiVersionamentoIntegrationTest {
     void deveListarAnunciosNaVersaoV1() throws Exception {
         mockMvc.perform(get("/api/v1/anuncios"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$").isArray());
+                .andExpect(jsonPath("$.content").isArray())
+                .andExpect(jsonPath("$.totalElements").exists());
     }
 
     @Test

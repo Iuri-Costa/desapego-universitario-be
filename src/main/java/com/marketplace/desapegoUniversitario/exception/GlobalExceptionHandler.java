@@ -51,6 +51,12 @@ public class GlobalExceptionHandler {
         return resposta(HttpStatus.BAD_REQUEST, "PARAMETRO_INVALIDO", mensagem, request, List.of());
     }
 
+    @ExceptionHandler(ParametroInvalidoException.class)
+    public ResponseEntity<ErroResponse> tratarParametroDeNegocioInvalido(ParametroInvalidoException ex,
+                                                                         HttpServletRequest request) {
+        return resposta(HttpStatus.BAD_REQUEST, "PARAMETRO_INVALIDO", ex.getMessage(), request, List.of());
+    }
+
     @ExceptionHandler(MissingServletRequestParameterException.class)
     public ResponseEntity<ErroResponse> tratarParametroAusente(MissingServletRequestParameterException ex,
                                                                HttpServletRequest request) {

@@ -4,23 +4,48 @@ import com.marketplace.desapegoUniversitario.domain.Anuncio;
 import com.marketplace.desapegoUniversitario.domain.Categoria;
 import com.marketplace.desapegoUniversitario.domain.StatusAnuncio;
 import com.marketplace.desapegoUniversitario.domain.Usuario;
+import com.marketplace.desapegoUniversitario.dto.AnuncioFiltroDTO;
 import com.marketplace.desapegoUniversitario.dto.AnuncioPatchDTO;
 import com.marketplace.desapegoUniversitario.dto.AnuncioRequestDTO;
 import com.marketplace.desapegoUniversitario.dto.AnuncioResponseDTO;
+import com.marketplace.desapegoUniversitario.dto.PaginadoDTO;
+import com.marketplace.desapegoUniversitario.exception.ParametroInvalidoException;
 import com.marketplace.desapegoUniversitario.exception.RecursoNaoEncontradoException;
 import com.marketplace.desapegoUniversitario.mapper.AnuncioMapper;
 import com.marketplace.desapegoUniversitario.repository.AnuncioRepository;
+import com.marketplace.desapegoUniversitario.repository.AnuncioSpecification;
 import com.marketplace.desapegoUniversitario.repository.UsuarioRepository;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.time.Instant;
+import java.util.Arrays;
 import java.util.List;
+import java.util.Locale;
+import java.util.Map;
 import java.util.UUID;
 
 @Service
 public class AnuncioService {
+
+    private static final Map<String, String> ORDENACAO_PERMITIDA = Map.of(
+            "titulo", "titulo",
+            "preco", "preco",
+            "categoria", "categoria",
+            "condicao", "condicao",
+            "tipo", "tipo",
+            "status", "status",
+            "campus", "campus",
+            "criadoEm", "criadoEm",
+            "atualizadoEm", "atualizadoEm"
+    );
+    private static final int TAMANHO_MAXIMO_PAGINA = 100;
 
     private final AnuncioRepository anuncioRepository;
     private final UsuarioRepository usuarioRepository;
@@ -61,6 +86,12 @@ public class AnuncioService {
     }
 
     @Transactional(readOnly = true)
+    public PaginadoDTO<AnuncioResponseDTO> buscar(AnuncioFiltroDTO filtro) {
+        Page<Anuncio> pagina = anuncioRepository.findAll(AnuncioSpecification.de(filtro), paginacao(filtro));
+        return PaginadoDTO.de(pagina, AnuncioMapper::toResponse);
+    }
+
+    @Transactional(readOnly = true)
     public List<AnuncioResponseDTO> listarTodos() {
         return AnuncioMapper.toResponseList(anuncioRepository.findAllByRemovidoEmIsNull());
     }
@@ -88,6 +119,42 @@ public class AnuncioService {
     @Transactional
     public void removerPorModeracao(UUID id) {
         removerLogicamente(buscarAnuncio(id));
+    }
+
+    private Pageable paginacao(AnuncioFiltroDTO filtro) {
+        if (filtro.page() < 0 || filtro.size() < 1 || filtro.size() > TAMANHO_MAXIMO_PAGINA) {
+            throw new ParametroInvalidoException(
+                    "Use page >= 0 e size entre 1 e " + TAMANHO_MAXIMO_PAGINA);
+        }
+        BigDecimal min = filtro.precoMin();
+        BigDecimal max = filtro.precoMax();
+        if (min != null && max != null && min.compareTo(max) > 0) {
+            throw new ParametroInvalidoException("O preço mínimo não pode ser maior que o preço máximo");
+        }
+
+        String ordenacao = filtro.sort() == null || filtro.sort().isBlank()
+                ? "criadoEm,desc" : filtro.sort();
+        List<Sort.Order> ordens = Arrays.stream(ordenacao.split(";"))
+                .map(String::trim)
+                .filter(parte -> !parte.isEmpty())
+                .map(parte -> {
+                    String[] pedacos = parte.split(",", -1);
+                    String campo = ORDENACAO_PERMITIDA.get(pedacos[0].trim());
+                    if (campo == null) {
+                        throw new ParametroInvalidoException(
+                                "Campo de ordenação inválido: " + pedacos[0]);
+                    }
+                    String direcao = pedacos.length > 1 ? pedacos[1].trim().toLowerCase(Locale.ROOT) : "asc";
+                    if (!direcao.equals("asc") && !direcao.equals("desc")) {
+                        throw new ParametroInvalidoException("Direção de ordenação inválida: " + direcao);
+                    }
+                    return direcao.equals("desc") ? Sort.Order.desc(campo) : Sort.Order.asc(campo);
+                })
+                .toList();
+        if (ordens.isEmpty()) {
+            throw new ParametroInvalidoException("Informe ao menos um campo de ordenação");
+        }
+        return PageRequest.of(filtro.page(), filtro.size(), Sort.by(ordens));
     }
 
     private void removerLogicamente(Anuncio anuncio) {
