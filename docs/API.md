@@ -151,7 +151,7 @@ Envelope retornado por buscas paginadas:
 | Método | Rota | Auth | Exemplo | Resposta |
 |---|---|---|---|---|
 | GET | `/usuarios/me` | Bearer | `curl "$BASE/usuarios/me" -H "$AUTH"` | `200` `PerfilResponseDTO` |
-| PATCH | `/usuarios/me` | Bearer | `curl -X PATCH "$BASE/usuarios/me" -H "$AUTH" -H 'Content-Type: application/json' -d '{"nome":"Maria Almeida"}'` | `200` perfil atualizado (somente `nome` é editável) |
+| PATCH | `/usuarios/me` | Bearer | `curl -X PATCH "$BASE/usuarios/me" -H "$AUTH" -H 'Content-Type: application/json' -d '{"nome":"Maria Almeida","contato":"WhatsApp 99999-9999","avatar":"/uploads/perfis/maria.png"}'` | `200` perfil atualizado (`nome`, `contato` e `avatar` são editáveis) |
 | GET | `/usuarios/me/anuncios` | Bearer | `curl "$BASE/usuarios/me/anuncios?status=ATIVO&incluirRemovidos=false&page=0&size=20" -H "$AUTH"` | `200` `PaginadoDTO<AnuncioResponseDTO>` |
 
 `PerfilResponseDTO`:
@@ -166,9 +166,13 @@ Envelope retornado por buscas paginadas:
   "criadoEm": "2026-11-22T16:00:00Z",
   "totalAnuncios": 3,
   "anunciosAtivos": 2,
-  "favoritos": 1
+  "favoritos": 1,
+  "contato": "WhatsApp 99999-9999",
+  "avatar": "/uploads/perfis/maria.png"
 }
 ```
+
+`PATCH /usuarios/me` aceita apenas os campos enviados. `nome` não pode ficar em branco (máx. 255); `contato` tem até 255 caracteres; `avatar` tem até 1000 caracteres e aceita somente `/uploads/...` ou URL `https://...`. Enviar `""` em `contato` ou `avatar` limpa o valor. `email`, `role`, `emailVerificado` e contadores são somente leitura.
 
 ## Anúncios (`/anuncios`)
 

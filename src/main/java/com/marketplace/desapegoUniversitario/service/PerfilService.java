@@ -18,7 +18,9 @@ import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Optional;
 import java.util.UUID;
+import java.util.function.Consumer;
 
 @Service
 public class PerfilService {
@@ -51,16 +53,30 @@ public class PerfilService {
                 anuncioRepository.countByUsuarioIdAndRemovidoEmIsNull(usuario.getId()),
                 anuncioRepository.countByUsuarioIdAndStatusAndRemovidoEmIsNull(
                         usuario.getId(), StatusAnuncio.ATIVO),
-                favoritoRepository.countByUsuarioId(usuario.getId())
+                favoritoRepository.countByUsuarioId(usuario.getId()),
+                usuario.getContato(),
+                usuario.getAvatar()
         );
     }
 
     @Transactional
     public PerfilResponseDTO atualizar(String emailUsuario, AtualizarPerfilDTO dto) {
         Usuario usuario = buscarUsuario(emailUsuario);
-        usuario.setNome(dto.nome().trim());
+        aplicarSePresente(dto.nome(), valor -> usuario.setNome(valor.trim()));
+        aplicarSePresente(dto.contato(), valor -> usuario.setContato(textoOuNulo(valor)));
+        aplicarSePresente(dto.avatar(), valor -> usuario.setAvatar(textoOuNulo(valor)));
         usuarioRepository.save(usuario);
         return buscar(emailUsuario);
+    }
+
+    private static <T> void aplicarSePresente(Optional<T> valor, Consumer<T> consumidor) {
+        if (valor != null && valor.isPresent()) {
+            consumidor.accept(valor.get());
+        }
+    }
+
+    private static String textoOuNulo(String valor) {
+        return valor == null || valor.isBlank() ? null : valor.trim();
     }
 
     @Transactional(readOnly = true)

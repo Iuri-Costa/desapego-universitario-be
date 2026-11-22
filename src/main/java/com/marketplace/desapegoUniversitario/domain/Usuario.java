@@ -37,4 +37,15 @@ public class Usuario {
 
     @Column(nullable = false)
     private Instant criadoEm;
+
+    @Column(length = 255)
+    private String contato;
+
+    @Column(length = 1000)
+    private String avatar;
+
+    public Usuario(UUID id, String nome, String email, String senha, Role role,
+                   boolean emailVerificado, Instant criadoEm) {
+        this(id, nome, email, senha, role, emailVerificado, criadoEm, null, null);
+    }
 }

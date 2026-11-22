@@ -41,6 +41,8 @@ class PerfilIntegrationTest {
                         .andExpect(jsonPath("$.role").value("USUARIO"))
                         .andExpect(jsonPath("$.emailVerificado").value(true))
                         .andExpect(jsonPath("$.criadoEm").exists())
+                        .andExpect(jsonPath("$.contato").value(org.hamcrest.Matchers.nullValue()))
+                        .andExpect(jsonPath("$.avatar").value(org.hamcrest.Matchers.nullValue()))
                         .andReturn().getResponse().getContentAsString(), "$.email");
 
         org.junit.jupiter.api.Assertions.assertTrue(email.endsWith("@universidade.edu.br"));
@@ -67,6 +69,58 @@ class PerfilIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"nome\":\"\"}"))
                 .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void perfilDevePermitirEditarELimparContatoEAvatar() throws Exception {
+        String token = TestAutenticacao.cadastrarELogar(mockMvc);
+
+        mockMvc.perform(patch("/api/v1/usuarios/me")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"nome\":\"Maria Almeida\",\"contato\":\"WhatsApp 99999-9999\","
+                                + "\"avatar\":\"/uploads/perfis/maria.png\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.nome").value("Maria Almeida"))
+                .andExpect(jsonPath("$.contato").value("WhatsApp 99999-9999"))
+                .andExpect(jsonPath("$.avatar").value("/uploads/perfis/maria.png"));
+
+        mockMvc.perform(patch("/api/v1/usuarios/me")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"contato\":\"Instagram @maria\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.nome").value("Maria Almeida"))
+                .andExpect(jsonPath("$.contato").value("Instagram @maria"));
+
+        mockMvc.perform(patch("/api/v1/usuarios/me")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"contato\":\"\",\"avatar\":\"\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.contato").value(org.hamcrest.Matchers.nullValue()))
+                .andExpect(jsonPath("$.avatar").value(org.hamcrest.Matchers.nullValue()));
+    }
+
+    @Test
+    void perfilDeveRejeitarAvatarInseguroOuContatoLongo() throws Exception {
+        String token = TestAutenticacao.cadastrarELogar(mockMvc);
+
+        mockMvc.perform(patch("/api/v1/usuarios/me")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"avatar\":\"javascript:alert(1)\"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.codigo").value("VALIDACAO"))
+                .andExpect(jsonPath("$.erros[0].campo").value("avatar"));
+
+        mockMvc.perform(patch("/api/v1/usuarios/me")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"contato\":\"" + "a".repeat(256) + "\"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.codigo").value("VALIDACAO"))
+                .andExpect(jsonPath("$.erros[0].campo").value("contato"));
     }
 
     @Test

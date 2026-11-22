@@ -37,7 +37,7 @@ rotas `/api/v1/admin/**` exigem `ROLE_ADMIN`.
 | Linguagem / runtime | Java 21 |
 | Framework | Spring Boot 4.1.0 (Web MVC, Validation, Data JPA, Security, Mail, Cache, Actuator) |
 | Segurança | Spring Security + JWT JJWT 0.12.6, BCrypt, CORS, rate limit por IP |
-| Persistência | PostgreSQL 16, Hibernate, Spring Data JPA, Flyway (V1–V16) |
+| Persistência | PostgreSQL 16, Hibernate, Spring Data JPA, Flyway (V1–V17) |
 | Cache | Caffeine (máx. 500 entradas, TTL de 30 s) |
 | Documentação | springdoc-openapi 3.2.0 (Swagger UI + `/openapi.json`) |
 | Armazenamento | AWS SDK S3 2.31.78 (S3 ou compatível) ou disco local em desenvolvimento |
@@ -150,6 +150,8 @@ erDiagram
         Role role "USUARIO, ADMIN"
         boolean email_verificado
         Instant criado_em
+        string contato
+        string avatar
     }
     ANUNCIO {
         UUID id PK
@@ -262,11 +264,11 @@ e serializadas como ISO 8601 UTC (`...Z`); enums usam `@Enumerated(EnumType.STRI
 `UPPER_SNAKE_CASE` com `CHECK` constraints; a remoção de anúncio é lógica (`removido_em`).
 
 As migrações Flyway (`src/main/resources/db/migration`) evoluíram de `V1__baseline` até
-`V16__imagens_ordem_capa`. Todas são aditivas: `V13` normaliza enums e adiciona constraints sem
+`V17__perfil_contato_avatar`. Todas são aditivas: `V13` normaliza enums e adiciona constraints sem
 recriar tabelas; `V14` cria índices para listagem por `removido_em/criado_em`, categoria,
 preço, status e usuário; `V16` adiciona `ordem`/`capa` às imagens e espelha a capa no campo
-legado `anuncio.imagem`. O Hibernate roda com `ddl-auto=validate` e o Flyway com
-`clean-disabled=true`.
+legado `anuncio.imagem`; `V17` adiciona `contato` e `avatar` ao perfil. O Hibernate roda com
+`ddl-auto=validate` e o Flyway com `clean-disabled=true`.
 
 ---
 
@@ -414,7 +416,7 @@ Documentação completa, payloads e códigos de resposta em [docs/API.md](docs/A
 | POST | `/api/v1/anuncios/{id}/conclusao` | Bearer |
 | POST | `/api/v1/anuncios/{id}/avaliacoes` | Bearer |
 | GET | `/api/v1/usuarios/{id}/avaliacoes` | Público |
-| GET / PATCH | `/api/v1/usuarios/me` | Bearer |
+| GET / PATCH | `/api/v1/usuarios/me` | Bearer; PATCH edita `nome`, `contato` e `avatar` (URL `/uploads/` ou `https://`) |
 | GET | `/api/v1/usuarios/me/anuncios` | Bearer; histórico paginado |
 | POST | `/api/v1/anuncios/{id}/denuncias` | Bearer |
 

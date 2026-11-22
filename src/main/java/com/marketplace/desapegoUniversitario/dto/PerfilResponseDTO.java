@@ -12,6 +12,8 @@ public record PerfilResponseDTO(
         Instant criadoEm,
         long totalAnuncios,
         long anunciosAtivos,
-        long favoritos
+        long favoritos,
+        String contato,
+        String avatar
 ) {
 }
