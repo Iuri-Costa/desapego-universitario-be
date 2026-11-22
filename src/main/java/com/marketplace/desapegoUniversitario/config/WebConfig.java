@@ -6,12 +6,27 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
+import org.springframework.web.servlet.config.annotation.ResourceHandlerRegistry;
+import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
 import java.util.Arrays;
 import java.util.List;
 
 @Configuration
-public class WebConfig {
+public class WebConfig implements WebMvcConfigurer {
+
+    @Value("${app.storage.local.diretorio}")
+    private String diretorioLocal;
+
+    @Value("${app.storage.local.caminho-publico}")
+    private String caminhoPublico;
+
+    @Override
+    public void addResourceHandlers(ResourceHandlerRegistry registry) {
+        registry.addResourceHandler(caminhoPublico + "/**")
+                .addResourceLocations("file:" + diretorioLocal + "/");
+    }
+
 
     @Bean
     public CorsConfigurationSource corsConfigurationSource(

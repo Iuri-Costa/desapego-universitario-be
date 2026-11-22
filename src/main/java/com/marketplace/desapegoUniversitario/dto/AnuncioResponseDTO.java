@@ -7,6 +7,7 @@ import com.marketplace.desapegoUniversitario.domain.TipoAnuncio;
 
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.util.List;
 import java.util.UUID;
 
 public record AnuncioResponseDTO(
@@ -24,6 +25,7 @@ public record AnuncioResponseDTO(
         String campus,
         String localRetirada,
         Instant criadoEm,
-        Instant atualizadoEm
+        Instant atualizadoEm,
+        List<ImagemResponseDTO> imagens
 ) {
 }

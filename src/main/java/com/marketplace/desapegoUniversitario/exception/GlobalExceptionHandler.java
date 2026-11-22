@@ -51,6 +51,24 @@ public class GlobalExceptionHandler {
         return resposta(HttpStatus.BAD_REQUEST, "PARAMETRO_INVALIDO", mensagem, request, List.of());
     }
 
+    @ExceptionHandler(ImagemInvalidaException.class)
+    public ResponseEntity<ErroResponse> tratarImagemInvalida(ImagemInvalidaException ex,
+                                                             HttpServletRequest request) {
+        return resposta(HttpStatus.BAD_REQUEST, "IMAGEM_INVALIDA", ex.getMessage(), request, List.of());
+    }
+
+    @ExceptionHandler(org.springframework.web.multipart.MaxUploadSizeExceededException.class)
+    public ResponseEntity<ErroResponse> tratarArquivoGrande(HttpServletRequest request) {
+        return resposta(HttpStatus.BAD_REQUEST, "IMAGEM_INVALIDA", "Arquivo maior que o permitido",
+                request, List.of());
+    }
+
+    @ExceptionHandler(org.springframework.web.multipart.support.MissingServletRequestPartException.class)
+    public ResponseEntity<ErroResponse> tratarParteAusente(HttpServletRequest request) {
+        return resposta(HttpStatus.BAD_REQUEST, "REQUISICAO_INVALIDA",
+                "Envie as imagens no campo 'imagens'", request, List.of());
+    }
+
     @ExceptionHandler(ParametroInvalidoException.class)
     public ResponseEntity<ErroResponse> tratarParametroDeNegocioInvalido(ParametroInvalidoException ex,
                                                                          HttpServletRequest request) {

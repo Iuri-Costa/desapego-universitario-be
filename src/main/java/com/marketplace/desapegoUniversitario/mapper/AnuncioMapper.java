@@ -9,6 +9,7 @@ import com.marketplace.desapegoUniversitario.domain.Usuario;
 import com.marketplace.desapegoUniversitario.dto.AnuncioPatchDTO;
 import com.marketplace.desapegoUniversitario.dto.AnuncioRequestDTO;
 import com.marketplace.desapegoUniversitario.dto.AnuncioResponseDTO;
+import com.marketplace.desapegoUniversitario.dto.ImagemResponseDTO;
 
 import java.time.Instant;
 import java.util.List;
@@ -61,7 +62,7 @@ public final class AnuncioMapper {
                 valor -> anuncio.setLocalRetirada(textoOuPadrao(valor, LOCAL_PADRAO)));
     }
 
-    public static AnuncioResponseDTO toResponse(Anuncio anuncio) {
+    public static AnuncioResponseDTO toResponse(Anuncio anuncio, List<ImagemResponseDTO> imagens) {
         return new AnuncioResponseDTO(
                 anuncio.getId(),
                 anuncio.getTitulo(),
@@ -77,14 +78,9 @@ public final class AnuncioMapper {
                 anuncio.getCampus(),
                 anuncio.getLocalRetirada(),
                 anuncio.getCriadoEm(),
-                anuncio.getAtualizadoEm()
+                anuncio.getAtualizadoEm(),
+                imagens
         );
-    }
-
-    public static List<AnuncioResponseDTO> toResponseList(List<Anuncio> anuncios) {
-        return anuncios.stream()
-                .map(AnuncioMapper::toResponse)
-                .toList();
     }
 
     private static <T> void aplicarSePresente(Optional<T> valor, Consumer<T> consumidor) {

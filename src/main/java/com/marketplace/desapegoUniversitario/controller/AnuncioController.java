@@ -8,9 +8,11 @@ import com.marketplace.desapegoUniversitario.dto.AnuncioPatchDTO;
 import com.marketplace.desapegoUniversitario.dto.AnuncioRequestDTO;
 import com.marketplace.desapegoUniversitario.dto.AnuncioResponseDTO;
 import com.marketplace.desapegoUniversitario.dto.AnuncioFiltroDTO;
+import com.marketplace.desapegoUniversitario.dto.ImagemResponseDTO;
 import com.marketplace.desapegoUniversitario.dto.PaginadoDTO;
 import com.marketplace.desapegoUniversitario.service.AnuncioService;
 import jakarta.validation.Valid;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -22,7 +24,9 @@ import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.math.BigDecimal;
 import java.util.List;
@@ -82,6 +86,26 @@ public class AnuncioController {
                                                 @Valid @RequestBody AnuncioPatchDTO dto,
                                                 Authentication authentication) {
         return anuncioService.atualizarParcial(id, dto, authentication.getName());
+    }
+
+    @PostMapping(value = "/{id}/imagens", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public List<ImagemResponseDTO> adicionarImagens(@PathVariable UUID id,
+                                                     @RequestPart("imagens") List<MultipartFile> imagens,
+                                                     Authentication authentication) {
+        return anuncioService.adicionarImagens(id, imagens, authentication.getName());
+    }
+
+    @GetMapping("/{id}/imagens")
+    public List<ImagemResponseDTO> listarImagens(@PathVariable UUID id, Authentication authentication) {
+        return anuncioService.listarImagens(id, authentication.getName());
+    }
+
+    @DeleteMapping("/{id}/imagens/{imagemId}")
+    public ResponseEntity<Void> removerImagem(@PathVariable UUID id,
+                                               @PathVariable UUID imagemId,
+                                               Authentication authentication) {
+        anuncioService.removerImagem(id, imagemId, authentication.getName());
+        return ResponseEntity.noContent().build();
     }
 
     @DeleteMapping("/{id}")
