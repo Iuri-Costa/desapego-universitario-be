@@ -39,6 +39,11 @@ public class AnuncioController {
         return anuncioService.listarTodos();
     }
 
+    @GetMapping("/{id}")
+    public AnuncioResponseDTO buscarPorId(@PathVariable UUID id) {
+        return anuncioService.buscarPorId(id);
+    }
+
     @GetMapping("/categoria/{categoria}")
     public List<AnuncioResponseDTO> listarPorCategoria(@PathVariable Categoria categoria) {
         return anuncioService.listarPorCategoria(categoria);

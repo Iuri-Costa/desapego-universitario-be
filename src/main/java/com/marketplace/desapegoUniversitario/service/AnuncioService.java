@@ -13,6 +13,7 @@ import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
@@ -39,13 +40,13 @@ public class AnuncioService {
         Anuncio anuncio = buscarAnuncio(id);
         garantirDono(anuncio, buscarUsuario(emailUsuario));
 
-        anuncio.setTitulo(dto.titulo());
-        anuncio.setPreco(dto.preco());
-        anuncio.setDescricao(dto.descricao());
-        anuncio.setImagem(dto.imagem());
-        anuncio.setCategoria(dto.categoria());
-        anuncio.setContato(dto.contato());
-        return AnuncioMapper.toResponse(anuncioRepository.save(anuncio));
+        AnuncioMapper.aplicarCampos(anuncio, dto);
+        return AnuncioMapper.toResponse(salvar(anuncio));
+    }
+
+    @Transactional(readOnly = true)
+    public AnuncioResponseDTO buscarPorId(UUID id) {
+        return AnuncioMapper.toResponse(buscarAnuncio(id));
     }
 
     @Transactional(readOnly = true)
@@ -75,6 +76,11 @@ public class AnuncioService {
     @Transactional
     public void removerPorModeracao(UUID id) {
         anuncioRepository.delete(buscarAnuncio(id));
+    }
+
+    private Anuncio salvar(Anuncio anuncio) {
+        anuncio.setAtualizadoEm(Instant.now());
+        return anuncioRepository.save(anuncio);
     }
 
     private Anuncio buscarAnuncio(UUID id) {

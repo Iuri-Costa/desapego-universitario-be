@@ -1,6 +1,8 @@
 package com.marketplace.desapegoUniversitario.dto;
 
 import com.marketplace.desapegoUniversitario.domain.Categoria;
+import com.marketplace.desapegoUniversitario.domain.Condicao;
+import com.marketplace.desapegoUniversitario.domain.TipoAnuncio;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.Digits;
 import jakarta.validation.constraints.NotBlank;
@@ -28,6 +30,16 @@ public record AnuncioRequestDTO(
         Categoria categoria,
 
         @Size(max = 255, message = "O contato deve ter no máximo 255 caracteres")
-        String contato
+        String contato,
+
+        TipoAnuncio tipo,
+
+        Condicao condicao,
+
+        @Size(max = 120, message = "O campus deve ter no máximo 120 caracteres")
+        String campus,
+
+        @Size(max = 255, message = "O local de retirada deve ter no máximo 255 caracteres")
+        String localRetirada
 ) {
 }

@@ -1,8 +1,12 @@
 package com.marketplace.desapegoUniversitario.dto;
 
 import com.marketplace.desapegoUniversitario.domain.Categoria;
+import com.marketplace.desapegoUniversitario.domain.Condicao;
+import com.marketplace.desapegoUniversitario.domain.StatusAnuncio;
+import com.marketplace.desapegoUniversitario.domain.TipoAnuncio;
 
 import java.math.BigDecimal;
+import java.time.Instant;
 import java.util.UUID;
 
 public record AnuncioResponseDTO(
@@ -13,6 +17,13 @@ public record AnuncioResponseDTO(
         String imagem,
         Categoria categoria,
         String contato,
-        boolean moderado
+        boolean moderado,
+        TipoAnuncio tipo,
+        Condicao condicao,
+        StatusAnuncio status,
+        String campus,
+        String localRetirada,
+        Instant criadoEm,
+        Instant atualizadoEm
 ) {
 }
