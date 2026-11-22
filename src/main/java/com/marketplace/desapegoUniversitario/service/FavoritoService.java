@@ -6,11 +6,14 @@ import com.marketplace.desapegoUniversitario.domain.Usuario;
 import com.marketplace.desapegoUniversitario.dto.AnuncioResponseDTO;
 import com.marketplace.desapegoUniversitario.dto.FavoritoResponseDTO;
 import com.marketplace.desapegoUniversitario.dto.PaginadoDTO;
+import com.marketplace.desapegoUniversitario.exception.ConflitoException;
+import com.marketplace.desapegoUniversitario.exception.ParametroInvalidoException;
 import com.marketplace.desapegoUniversitario.exception.RecursoNaoEncontradoException;
 import com.marketplace.desapegoUniversitario.repository.AnuncioRepository;
 import com.marketplace.desapegoUniversitario.repository.FavoritoRepository;
 import com.marketplace.desapegoUniversitario.repository.UsuarioRepository;
 import com.marketplace.desapegoUniversitario.util.Paginas;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
@@ -43,8 +46,16 @@ public class FavoritoService {
         Anuncio anuncio = anuncioRepository.findByIdAndRemovidoEmIsNull(anuncioId)
                 .orElseThrow(() -> new RecursoNaoEncontradoException("Anúncio não encontrado"));
 
-        if (!favoritoRepository.existsByUsuarioIdAndAnuncioId(usuario.getId(), anuncioId)) {
-            favoritoRepository.save(new Favorito(null, usuario, anuncio, Instant.now()));
+        if (anuncio.getUsuario() != null && anuncio.getUsuario().getId().equals(usuario.getId())) {
+            throw new ParametroInvalidoException("Não é possível favoritar o próprio anúncio");
+        }
+        if (favoritoRepository.existsByUsuarioIdAndAnuncioId(usuario.getId(), anuncioId)) {
+            throw new ConflitoException("Este anúncio já está nos seus favoritos");
+        }
+        try {
+            favoritoRepository.saveAndFlush(new Favorito(null, usuario, anuncio, Instant.now()));
+        } catch (DataIntegrityViolationException ex) {
+            throw new ConflitoException("Este anúncio já está nos seus favoritos");
         }
         return new FavoritoResponseDTO(anuncioId, true);
     }

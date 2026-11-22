@@ -397,7 +397,7 @@ Documentação completa, payloads e códigos de resposta em [docs/API.md](docs/A
 
 | Método | Rota | Observação |
 | --- | --- | --- |
-| POST / DELETE | `/api/v1/anuncios/{id}/favoritos` | Bearer |
+| POST / DELETE | `/api/v1/anuncios/{id}/favoritos` | Bearer; não permite próprio anúncio, duplicado retorna 409 |
 | GET | `/api/v1/usuarios/me/favoritos` | Bearer; paginado |
 | POST / GET | `/api/v1/anuncios/{id}/mensagens` | Bearer; conversa do anúncio |
 | PATCH | `/api/v1/mensagens/{id}/lida` | Bearer |

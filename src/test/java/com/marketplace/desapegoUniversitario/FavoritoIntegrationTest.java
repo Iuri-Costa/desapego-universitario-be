@@ -25,32 +25,29 @@ class FavoritoIntegrationTest {
 
     @Test
     void usuarioDeveAdicionarListarERemoverFavoritos() throws Exception {
-        String token = TestAutenticacao.cadastrarELogar(mockMvc);
-        UUID id = TestAutenticacao.criarAnuncio(mockMvc, token);
+        String dono = TestAutenticacao.cadastrarELogar(mockMvc);
+        String cliente = TestAutenticacao.cadastrarELogar(mockMvc);
+        UUID id = TestAutenticacao.criarAnuncio(mockMvc, dono);
 
         mockMvc.perform(post("/api/v1/anuncios/{id}/favoritos", id)
-                        .header("Authorization", "Bearer " + token))
+                        .header("Authorization", "Bearer " + cliente))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.anuncioId").value(id.toString()))
                 .andExpect(jsonPath("$.favorito").value(true));
 
-        mockMvc.perform(post("/api/v1/anuncios/{id}/favoritos", id)
-                        .header("Authorization", "Bearer " + token))
-                .andExpect(status().isOk());
-
         mockMvc.perform(get("/api/v1/usuarios/me/favoritos")
-                        .header("Authorization", "Bearer " + token)
+                        .header("Authorization", "Bearer " + cliente)
                         .param("size", "100"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.totalElements").value(1))
                 .andExpect(jsonPath("$.content[?(@.id == '" + id + "')]").exists());
 
         mockMvc.perform(delete("/api/v1/anuncios/{id}/favoritos", id)
-                        .header("Authorization", "Bearer " + token))
+                        .header("Authorization", "Bearer " + cliente))
                 .andExpect(status().isNoContent());
 
         mockMvc.perform(get("/api/v1/usuarios/me/favoritos")
-                        .header("Authorization", "Bearer " + token))
+                        .header("Authorization", "Bearer " + cliente))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.content[?(@.id == '" + id + "')]").doesNotExist());
     }
@@ -58,11 +55,12 @@ class FavoritoIntegrationTest {
     @Test
     void favoritosNaoDevemSerCompartilhadosEntreUsuarios() throws Exception {
         String dono = TestAutenticacao.cadastrarELogar(mockMvc);
+        String cliente = TestAutenticacao.cadastrarELogar(mockMvc);
         String outro = TestAutenticacao.cadastrarELogar(mockMvc);
         UUID id = TestAutenticacao.criarAnuncio(mockMvc, dono);
 
         mockMvc.perform(post("/api/v1/anuncios/{id}/favoritos", id)
-                        .header("Authorization", "Bearer " + dono))
+                        .header("Authorization", "Bearer " + cliente))
                 .andExpect(status().isOk());
 
         mockMvc.perform(get("/api/v1/usuarios/me/favoritos")
@@ -78,6 +76,33 @@ class FavoritoIntegrationTest {
                         .header("Authorization", "Bearer " + token))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.codigo").value("NAO_ENCONTRADO"));
+    }
+
+    @Test
+    void favoritarProprioAnuncioDeveRetornarBadRequest() throws Exception {
+        String dono = TestAutenticacao.cadastrarELogar(mockMvc);
+        UUID id = TestAutenticacao.criarAnuncio(mockMvc, dono);
+
+        mockMvc.perform(post("/api/v1/anuncios/{id}/favoritos", id)
+                        .header("Authorization", "Bearer " + dono))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.codigo").value("PARAMETRO_INVALIDO"));
+    }
+
+    @Test
+    void favoritoDuplicadoDeveRetornarConflict() throws Exception {
+        String dono = TestAutenticacao.cadastrarELogar(mockMvc);
+        String cliente = TestAutenticacao.cadastrarELogar(mockMvc);
+        UUID id = TestAutenticacao.criarAnuncio(mockMvc, dono);
+
+        mockMvc.perform(post("/api/v1/anuncios/{id}/favoritos", id)
+                        .header("Authorization", "Bearer " + cliente))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(post("/api/v1/anuncios/{id}/favoritos", id)
+                        .header("Authorization", "Bearer " + cliente))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.codigo").value("CONFLITO"));
     }
 
     @Test

@@ -213,11 +213,11 @@ Defaults na criação: `tipo=VENDA`, `condicao=USADO`, `campus=PRINCIPAL`, `loca
 
 | Método | Rota | Auth | Exemplo | Resposta |
 |---|---|---|---|---|
-| POST | `/anuncios/{id}/favoritos` | Bearer | `curl -X POST "$BASE/anuncios/$ID/favoritos" -H "$AUTH"` | `200` `{"anuncioId":"...","favorito":true}`; idempotente |
+| POST | `/anuncios/{id}/favoritos` | Bearer | `curl -X POST "$BASE/anuncios/$ID/favoritos" -H "$AUTH"` | `200` `{"anuncioId":"...","favorito":true}`; `400` no próprio anúncio; `409` se já favoritado |
 | DELETE | `/anuncios/{id}/favoritos` | Bearer | `curl -X DELETE "$BASE/anuncios/$ID/favoritos" -H "$AUTH"` | `204` |
 | GET | `/usuarios/me/favoritos` | Bearer | `curl "$BASE/usuarios/me/favoritos?page=0&size=20" -H "$AUTH"` | `200` `PaginadoDTO<AnuncioResponseDTO>` |
 
-Favoritar o próprio anúncio é permitido. Não há endpoint para consultar o estado de um favorito específico.
+Não é possível favoritar o próprio anúncio (`400`, `codigo=PARAMETRO_INVALIDO`). Favorito duplicado retorna `409`, `codigo=CONFLITO`. Não há endpoint para consultar o estado de um favorito específico.
 
 ## Mensagens
 
