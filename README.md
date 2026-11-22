@@ -18,10 +18,11 @@ Esse repositório é o backend, uma API REST em Spring Boot. O frontend fica em 
 
 Pré requisitos: Java 21+, Maven (ou usa o wrapper `./mvnw`, que já vem no repositório), e uma instância PostgreSQL acessível (local ou na nuvem).
 
-1. Cria um arquivo `.env` na raiz do projeto com:
-   JDBC_URL=jdbc:postgresql://<host>:<porta>/<nome_do_banco>
-   DB_USERNAME=<usuario>
-   DB_PASSWORD=<senha>
+1. Cria um arquivo `.env` a partir do exemplo e ajusta os valores:
+   ```bash
+   cp .env.example .env
+   ```
+   Variáveis principais: `SPRING_PROFILES_ACTIVE`, `PORT`, `JDBC_URL`, `DB_USERNAME`, `DB_PASSWORD`, `CORS_ALLOWED_ORIGINS`, `JPA_SHOW_SQL`.
 2. Roda a aplicação:
 
 ```bash
@@ -29,6 +30,16 @@ Pré requisitos: Java 21+, Maven (ou usa o wrapper `./mvnw`, que já vem no repo
 ```
 
 A API sobe em `http://localhost:8080`. O schema é gerenciado pelo Flyway (`src/main/resources/db/migration`) e validado pelo Hibernate (`ddl-auto=validate`). Em bancos já existentes, o Flyway cria o baseline automaticamente; em bancos novos, a migration `V1` é aplicada.
+
+### Perfis
+
+| Perfil | Uso | Banco |
+|---|---|---|
+| `dev` | Desenvolvimento local | PostgreSQL via `JDBC_URL` |
+| `test` | Testes automatizados | H2 em memória (modo PostgreSQL) |
+| `prod` | Produção | PostgreSQL via `JDBC_URL` |
+
+O perfil padrão é `dev`. Em produção, defina `SPRING_PROFILES_ACTIVE=prod` (o `Dockerfile` já define esse valor). Todas as configurações sensíveis vêm de variáveis de ambiente; nenhum segredo fica versionado.
 
 ## Endpoints
 
