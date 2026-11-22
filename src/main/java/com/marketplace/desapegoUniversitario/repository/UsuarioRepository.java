@@ -1,6 +1,6 @@
 package com.marketplace.desapegoUniversitario.repository;
 
-import com.marketplace.desapegoUniversitario.model.Usuario;
+import com.marketplace.desapegoUniversitario.domain.Usuario;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.Optional;

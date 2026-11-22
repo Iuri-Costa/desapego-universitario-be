@@ -1,7 +1,7 @@
 package com.marketplace.desapegoUniversitario.repository;
 
-import com.marketplace.desapegoUniversitario.model.Anuncio;
-import com.marketplace.desapegoUniversitario.model.Categoria;
+import com.marketplace.desapegoUniversitario.domain.Anuncio;
+import com.marketplace.desapegoUniversitario.domain.Categoria;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.List;

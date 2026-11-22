@@ -1,4 +1,4 @@
-package com.marketplace.desapegoUniversitario.model;
+package com.marketplace.desapegoUniversitario.domain;
 
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
