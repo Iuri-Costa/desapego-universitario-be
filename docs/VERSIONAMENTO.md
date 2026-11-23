@@ -50,6 +50,14 @@ Sunset: Wed, 31 Mar 2027 00:00:00 GMT
 Link: </api/v2/anuncios>; rel="successor-version"
 ```
 
+### Depreciações ativas
+
+| Rota legada | Substituta | Aviso desde | Sunset |
+| --- | --- | --- | --- |
+| `POST /api/v1/usuarios/login` | `POST /api/v1/auth/login` | 2026-11-23 | 2027-03-31 (`Deprecation: true` e `Sunset` em toda resposta 200) |
+
+Ambas emitem o mesmo par access/refresh token com rotação; a substituta é idêntica em corpo e códigos de erro.
+
 ## Política de suporte
 
 - `v1`: suporte integral; correções de bug e mudanças compatíveis.

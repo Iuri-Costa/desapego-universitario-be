@@ -11,6 +11,7 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -41,6 +42,33 @@ class AutenticacaoIntegrationTest {
 
         org.junit.jupiter.api.Assertions.assertFalse(corpo.contains("senha"));
         org.junit.jupiter.api.Assertions.assertFalse(corpo.contains("$2a$"));
+    }
+
+    @Test
+    void loginLegadoDeveAvisarDeprecacaoEcontinuarEmitindoMesmosTokens() throws Exception {
+        String email = TestAutenticacao.novoEmail();
+        TestAutenticacao.cadastrar(mockMvc, email);
+
+        mockMvc.perform(post("/api/v1/usuarios/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"email":"%s","senha":"%s"}
+                                """.formatted(email, TestAutenticacao.SENHA)))
+                .andExpect(status().isOk())
+                .andExpect(header().string("Deprecation", "true"))
+                .andExpect(header().string("Sunset", "Wed, 31 Mar 2027 00:00:00 GMT"))
+                .andExpect(header().string(HttpHeaders.LINK,
+                        "</api/v1/auth/login>; rel=\"successor-version\""))
+                .andExpect(jsonPath("$.accessToken").exists())
+                .andExpect(jsonPath("$.refreshToken").exists());
+
+        mockMvc.perform(post("/api/v1/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"email":"%s","senha":"%s"}
+                                """.formatted(email, TestAutenticacao.SENHA)))
+                .andExpect(status().isOk())
+                .andExpect(header().doesNotExist("Deprecation"));
     }
 
     @Test

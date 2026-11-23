@@ -32,7 +32,8 @@ class OpenApiIntegrationTest {
                 .andExpect(jsonPath("$.paths['/api/v1/auth/login'].post.responses['200'].content['application/json'].schema.$ref")
                         .value("#/components/schemas/TokenResponseDTO"))
                 .andExpect(jsonPath("$.paths['/api/v1/anuncios'].get.responses['401'].content['application/json'].schema.$ref")
-                        .value("#/components/schemas/ErroResponse"));
+                        .value("#/components/schemas/ErroResponse"))
+                .andExpect(jsonPath("$.paths['/api/v1/usuarios/login'].post.deprecated").value(true));
     }
 
     @Test

@@ -72,7 +72,7 @@ Erros de validação preenchem `erros`, por exemplo:
 Login e cadastro usam janela deslizante por IP **e** por e-mail. As rotas cobertas são:
 
 - `POST /api/v1/auth/login`
-- `POST /api/v1/usuarios/login` (alias legado)
+- `POST /api/v1/usuarios/login` (alias legado, **deprecated** — substituto: `/auth/login`)
 - `POST /api/v1/usuarios/cadastro`
 
 Configuração: `RATE_LIMIT_LOGIN` (padrão 5), `RATE_LIMIT_CADASTRO` (padrão 3) e `RATE_LIMIT_JANELA` (padrão `PT1M`). Quando excedido, a resposta é `429` com `ErroResponse`, `codigo = LIMITE_EXCEDIDO` e header `Retry-After` em segundos.
@@ -144,7 +144,7 @@ Envelope retornado por buscas paginadas:
 | POST | `/usuarios/reenviar-verificacao` | Pública | `curl -X POST "$BASE/usuarios/reenviar-verificacao" -H 'Content-Type: application/json' -d '{"email":"maria@universidade.edu.br"}'` | `202` |
 | POST | `/usuarios/recuperar-senha` | Pública | `curl -X POST "$BASE/usuarios/recuperar-senha" -H 'Content-Type: application/json' -d '{"email":"maria@universidade.edu.br"}'` | `202` |
 | POST | `/usuarios/redefinir-senha` | Pública | `curl -X POST "$BASE/usuarios/redefinir-senha" -H 'Content-Type: application/json' -d '{"token":"<token>","novaSenha":"Nova@Senha123"}'` | `204` |
-| POST | `/usuarios/login` | Pública, limitada | `curl -X POST "$BASE/usuarios/login" -H 'Content-Type: application/json' -d '{"email":"aluno@universidade.edu.br","senha":"Senha@12345"}'` | `200` `TokenResponseDTO` (alias legado de `/auth/login`) |
+| POST | `/usuarios/login` | Pública, limitada, **deprecated** | `curl -X POST "$BASE/usuarios/login" -H 'Content-Type: application/json' -d '{"email":"aluno@universidade.edu.br","senha":"Senha@12345"}'` | `200` `TokenResponseDTO` (alias legado de `/auth/login`) + headers `Deprecation: true`, `Sunset: Wed, 31 Mar 2027 00:00:00 GMT`, `Link: </api/v1/auth/login>; rel="successor-version"` |
 
 ## Perfil (`/usuarios/me`)
 

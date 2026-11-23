@@ -387,6 +387,7 @@ Documentação completa, payloads e códigos de resposta em [docs/API.md](docs/A
 | POST | `/api/v1/usuarios/reenviar-verificacao` | Público |
 | POST | `/api/v1/usuarios/recuperar-senha` | Público |
 | POST | `/api/v1/usuarios/redefinir-senha` | Público |
+| POST | `/api/v1/usuarios/login` | Público; **deprecated** — alias legado de `/auth/login`, responde com headers `Deprecation`/`Sunset`;use `/auth/login` |
 | POST | `/api/v1/auth/login` | Público; retorna access + refresh token |
 | POST | `/api/v1/auth/refresh` | Público; rotaciona o refresh token |
 | POST | `/api/v1/auth/logout` | Bearer; revoga os refresh tokens |
