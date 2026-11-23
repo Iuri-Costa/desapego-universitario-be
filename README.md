@@ -369,8 +369,8 @@ A maioria das variáveis está em [`.env.example`](.env.example); as demais têm
 | `LOG_FORMAT`, `LOG_LEVEL_ROOT`, `APP_VERSION` | `logstash`, `INFO`, `1.0.0` | Logs JSON e metadados do `/actuator/info` |
 | `OPENAPI_ENABLED`, `SWAGGER_UI_ENABLED` | `true` | Documentação da API |
 | `CORS_ALLOWED_ORIGINS` | `http://localhost:5173` | Origens permitidas (separadas por vírgula) |
-| `FORWARD_HEADERS_STRATEGY` | `framework` | Estratégia de headers encaminhados pelo Spring |
-| `RATE_LIMIT_TRUSTED_PROXIES` | faixas privadas/loopback em prod | Regex Java dos proxies confiáveis; só deles `X-Forwarded-For` é aceito no rate limit por IP |
+| `FORWARD_HEADERS_STRATEGY` | `native` | Usar `native` em produção: o `X-Forwarded-For` só é aceito de `RATE_LIMIT_TRUSTED_PROXIES` (com `framework`, o Spring reescreve o IP antes do rate limit e permite forjamento) |
+| `RATE_LIMIT_TRUSTED_PROXIES` | faixas privadas/loopback em prod | Regex Java dos proxies confiáveis; usada tanto pelo filtro de rate limit quanto pela `RemoteIpValve` do Tomcat |
 | `API_PORT`, `DB_PORT`, `DB_NAME` | `8080`, `5432`, `desapego_universitario` | Portas/nome do banco no Docker Compose |
 
 ---

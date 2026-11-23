@@ -78,7 +78,7 @@ Login e cadastro usam janela deslizante por IP **e** por e-mail (IP no filtro; e
 
 Configuração: `RATE_LIMIT_LOGIN` (padrão 5), `RATE_LIMIT_CADASTRO` (padrão 3) e `RATE_LIMIT_JANELA` (padrão `PT1M`). Quando excedido, a resposta é `429` com `ErroResponse`, `codigo = LIMITE_EXCEDIDO` e header `Retry-After` em segundos.
 
-O limite por IP usa `request.getRemoteAddr()`. Quando a conexão TCP vem de um proxy confiável (`app.rate-limit.trusted-proxies`, regex Java), o filtro usa o primeiro IP de `X-Forwarded-For` como cliente real — configuração recomendada no Render. Se a conexão não vem de proxy confiável, o header é ignorado para evitar forjamento de IP pelo cliente. Em dev/test, sem proxy confiável, é usado o IP da conexão. Os contadores ficam em memória, por instância da aplicação — atrás de balanceador, cada réplica tem seu próprio contador.
+O limite por IP usa `request.getRemoteAddr()`. Em produção, `server.forward-headers-strategy=native` e uma `RemoteIpValve` do Tomcat aceitam `X-Forwarded-For` apenas quando a conexão TCP vem de um proxy confiável (`app.rate-limit.trusted-proxies`, lista de IPs/faixas). O filtro usa o primeiro IP encaminhado como cliente real — configuração recomendada no Render. Se a conexão não vem de proxy confiável, o header é ignorado para evitar forjamento de IP pelo cliente. Não use `framework` em produção com rate limit: o `ForwardedHeaderFilter` reescreve `getRemoteAddr()` antes do filtro e ignora a lista de proxies confiáveis. Em dev/test, sem proxy confiável, é usado o IP da conexão. Os contadores ficam em memória, por instância da aplicação — atrás de balanceador, cada réplica tem seu próprio contador.
 
 ## Cadastro, verificação e papéis
 
