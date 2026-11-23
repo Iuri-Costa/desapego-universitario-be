@@ -37,7 +37,7 @@ rotas `/api/v1/admin/**` e `/actuator/metrics` exigem `ROLE_ADMIN`.
 | --- | --- |
 | Linguagem / runtime | Java 21 |
 | Framework | Spring Boot 4.1.0 (Web MVC, Validation, Data JPA, Security, Mail, Cache, Actuator) |
-| Segurança | Spring Security + JWT JJWT 0.12.6, BCrypt, CORS, rate limit por IP |
+| Segurança | Spring Security + JWT JJWT 0.12.6, BCrypt, CORS, rate limit por IP e por e-mail |
 | Persistência | PostgreSQL 16, Hibernate, Spring Data JPA, Flyway (V1–V18) |
 | Cache | Caffeine (máx. 500 entradas, TTL de 30 s) |
 | Documentação | springdoc-openapi 3.2.0 (Swagger UI + `/openapi.json`) |
@@ -354,7 +354,7 @@ A maioria das variáveis está em [`.env.example`](.env.example); as demais têm
 | `JWT_SECRET` | vazio | Segredo HS256 (obrigatório em produção, mínimo 32 bytes) |
 | `JWT_ACCESS_TOKEN_TTL`, `JWT_REFRESH_TOKEN_TTL` | `PT15M`, `P7D` | Validade dos tokens |
 | `EMAIL_DOMINIOS_INSTITUCIONAIS` | `edu.br,edu,ac.br` | Domínios aceitos no cadastro |
-| `RATE_LIMIT_LOGIN`, `RATE_LIMIT_CADASTRO`, `RATE_LIMIT_JANELA` | `5`, `3`, `PT1M` | Limites por IP |
+| `RATE_LIMIT_LOGIN`, `RATE_LIMIT_CADASTRO`, `RATE_LIMIT_JANELA` | `5`, `3`, `PT1M` | Limites por IP e por e-mail |
 | `RESERVA_TTL` | `PT24H` | TTL da reserva ativa antes da expiração automática |
 | `MAIL_HOST`, `MAIL_PORT`, `MAIL_USERNAME`, `MAIL_PASSWORD`, `MAIL_FROM` | vazios / `587` | SMTP; sem `MAIL_HOST` nada é enviado |
 | `MAIL_SMTP_AUTH`, `MAIL_STARTTLS` | `true` | Autenticação/TLS do SMTP |
@@ -369,7 +369,7 @@ A maioria das variáveis está em [`.env.example`](.env.example); as demais têm
 | `LOG_FORMAT`, `LOG_LEVEL_ROOT`, `APP_VERSION` | `logstash`, `INFO`, `1.0.0` | Logs JSON e metadados do `/actuator/info` |
 | `OPENAPI_ENABLED`, `SWAGGER_UI_ENABLED` | `true` | Documentação da API |
 | `CORS_ALLOWED_ORIGINS` | `http://localhost:5173` | Origens permitidas (separadas por vírgula) |
-| `FORWARD_HEADERS_STRATEGY` | `framework` | Headers proxy (Render) |
+| `FORWARD_HEADERS_STRATEGY` | `framework` | Headers proxy (Render): `getRemoteAddr()` passa a ser o primeiro IP do `X-Forwarded-For`, definido pelo proxy como o cliente real; use `native` somente com proxy confiável configurado |
 | `API_PORT`, `DB_PORT`, `DB_NAME` | `8080`, `5432`, `desapego_universitario` | Portas/nome do banco no Docker Compose |
 
 ---

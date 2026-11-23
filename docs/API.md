@@ -77,7 +77,7 @@ Login e cadastro usam janela deslizante por IP **e** por e-mail. As rotas cobert
 
 Configuração: `RATE_LIMIT_LOGIN` (padrão 5), `RATE_LIMIT_CADASTRO` (padrão 3) e `RATE_LIMIT_JANELA` (padrão `PT1M`). Quando excedido, a resposta é `429` com `ErroResponse`, `codigo = LIMITE_EXCEDIDO` e header `Retry-After` em segundos.
 
-O limite por IP usa `request.getRemoteAddr()`; `X-Forwarded-For` fornecido pelo cliente não é aceito. Os contadores ficam em memória, por instância da aplicação — atrás de balanceador, cada réplica tem seu próprio contador.
+O limite por IP usa `request.getRemoteAddr()`. Em produção, com `server.forward-headers-strategy=framework`, o Spring o reescreve a partir do `X-Forwarded-For` definido pelo proxy: o Render coloca o IP real do cliente na primeira posição, então cada usuário tem seu próprio contador (o header não é lido diretamente pelo filtro). Em dev/test, sem proxy, é usado o IP da conexão. Os contadores ficam em memória, por instância da aplicação — atrás de balanceador, cada réplica tem seu próprio contador.
 
 ## Cadastro, verificação e papéis
 
