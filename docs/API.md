@@ -70,7 +70,7 @@ Erros de validação preenchem `erros`, por exemplo:
 
 ## Rate limiting
 
-Login e cadastro usam janela deslizante por IP **e** por e-mail. As rotas cobertas são:
+Login e cadastro usam janela deslizante por IP **e** por e-mail (IP no filtro; e-mail nos services, via `LimitadorRequisicoes`). As rotas cobertas são:
 
 - `POST /api/v1/auth/login`
 - `POST /api/v1/usuarios/login` (alias legado, **deprecated** — substituto: `/auth/login`)
@@ -78,7 +78,7 @@ Login e cadastro usam janela deslizante por IP **e** por e-mail. As rotas cobert
 
 Configuração: `RATE_LIMIT_LOGIN` (padrão 5), `RATE_LIMIT_CADASTRO` (padrão 3) e `RATE_LIMIT_JANELA` (padrão `PT1M`). Quando excedido, a resposta é `429` com `ErroResponse`, `codigo = LIMITE_EXCEDIDO` e header `Retry-After` em segundos.
 
-O limite por IP usa `request.getRemoteAddr()`. Em produção, com `server.forward-headers-strategy=framework`, o Spring o reescreve a partir do `X-Forwarded-For` definido pelo proxy: o Render coloca o IP real do cliente na primeira posição, então cada usuário tem seu próprio contador (o header não é lido diretamente pelo filtro). Em dev/test, sem proxy, é usado o IP da conexão. Os contadores ficam em memória, por instância da aplicação — atrás de balanceador, cada réplica tem seu próprio contador.
+O limite por IP usa `request.getRemoteAddr()`. Quando a conexão TCP vem de um proxy confiável (`app.rate-limit.trusted-proxies`, regex Java), o filtro usa o primeiro IP de `X-Forwarded-For` como cliente real — configuração recomendada no Render. Se a conexão não vem de proxy confiável, o header é ignorado para evitar forjamento de IP pelo cliente. Em dev/test, sem proxy confiável, é usado o IP da conexão. Os contadores ficam em memória, por instância da aplicação — atrás de balanceador, cada réplica tem seu próprio contador.
 
 ## Cadastro, verificação e papéis
 

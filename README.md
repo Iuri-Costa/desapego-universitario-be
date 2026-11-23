@@ -369,7 +369,8 @@ A maioria das variáveis está em [`.env.example`](.env.example); as demais têm
 | `LOG_FORMAT`, `LOG_LEVEL_ROOT`, `APP_VERSION` | `logstash`, `INFO`, `1.0.0` | Logs JSON e metadados do `/actuator/info` |
 | `OPENAPI_ENABLED`, `SWAGGER_UI_ENABLED` | `true` | Documentação da API |
 | `CORS_ALLOWED_ORIGINS` | `http://localhost:5173` | Origens permitidas (separadas por vírgula) |
-| `FORWARD_HEADERS_STRATEGY` | `framework` | Headers proxy (Render): `getRemoteAddr()` passa a ser o primeiro IP do `X-Forwarded-For`, definido pelo proxy como o cliente real; use `native` somente com proxy confiável configurado |
+| `FORWARD_HEADERS_STRATEGY` | `framework` | Estratégia de headers encaminhados pelo Spring |
+| `RATE_LIMIT_TRUSTED_PROXIES` | faixas privadas/loopback em prod | Regex Java dos proxies confiáveis; só deles `X-Forwarded-For` é aceito no rate limit por IP |
 | `API_PORT`, `DB_PORT`, `DB_NAME` | `8080`, `5432`, `desapego_universitario` | Portas/nome do banco no Docker Compose |
 
 ---
