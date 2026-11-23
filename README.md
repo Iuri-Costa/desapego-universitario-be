@@ -24,9 +24,10 @@ A API cobre o ciclo completo do marketplace:
 - **Engajamento:** notificações no banco com push opcional via Firebase Cloud Messaging.
 - **Operação:** OpenAPI, Actuator, logs estruturados, cache, migrações versionadas e CI.
 
-Rotas públicas: cadastro/login/recuperação, `GET /api/v1/anuncios`, `GET /uploads/**`,
-Swagger/OpenAPI e health checks. Demais rotas exigem `Authorization: Bearer <accessToken>`;
-rotas `/api/v1/admin/**` exigem `ROLE_ADMIN`.
+Rotas públicas: cadastro/login/recuperação, `GET /api/v1/anuncios` (listagem, detalhe e
+`/categoria/{categoria}`), `GET /uploads/**`, Swagger/OpenAPI, `/healthz` e
+`/actuator/health[/**]`. Demais rotas exigem `Authorization: Bearer <accessToken>`;
+rotas `/api/v1/admin/**` e `/actuator/metrics` exigem `ROLE_ADMIN`.
 
 ---
 
@@ -434,8 +435,9 @@ Documentação completa, payloads e códigos de resposta em [docs/API.md](docs/A
 | POST | `/api/v1/admin/denuncias/{id}/resolucao` | ADMIN |
 | PATCH | `/api/v1/admin/anuncios/{id}/moderacao` | ADMIN |
 | DELETE | `/api/v1/admin/anuncios/{id}` | ADMIN |
-| GET | `/healthz` | Health leve (Render) |
-| GET | `/actuator/health`, `/actuator/info`, `/actuator/metrics` | Observabilidade |
+| GET | `/healthz`, `/actuator/health`, `/actuator/health/**` | Público; health leve (Render) e health completo |
+| GET | `/actuator/info` | Bearer; metadados da aplicação |
+| GET | `/actuator/metrics` | ADMIN; nomes de métricas |
 | GET | `/openapi.json`, `/swagger-ui.html` | Documentação |
 
 Paginações usam `page` (base 0), `size` (1–100, padrão 20) e o envelope `PaginadoDTO<T>` com
@@ -456,7 +458,7 @@ tratar pelo `codigo`, nunca pela mensagem.
 - **Tokens com rotação:** access token de 15 min e refresh de 7 dias de uso único; reutilização revoga a família de tokens. Hash de tokens e senhas nunca é logado.
 - **Integrações opcionais:** sem `S3_BUCKET` o storage é local; sem `FCM_CREDENTIALS` as notificações ficam apenas no banco; sem `MAIL_HOST` nenhum e-mail é enviado.
 - **Contrato publicado:** `/openapi.json` é a fonte para gerar clientes Kotlin; mudanças incompatíveis exigem nova versão de URL, conforme `docs/VERSIONAMENTO.md`.
-- **Observabilidade:** correlation id gerado/propagado por requisição no header `X-Correlation-Id` e no MDC; logs no formato estruturado `logstash`; Actuator expõe health/info/metrics.
+- **Observabilidade:** correlation id gerado/propagado por requisição no header `X-Correlation-Id` e no MDC; logs no formato estruturado `logstash`; Actuator expõe health (público), info (Bearer) e metrics (ADMIN).
 - **Deploy e CI:** imagem multi-stage com usuário não root e healthcheck, Compose com PostgreSQL, e pipeline GitHub Actions com build, testes e gate JaCoCo, relatórios de teste/cobertura publicados como artefatos, SpotBugs em job separado e build/push da imagem.
 - **Cold start:** `/healthz` responde sem consultar dependências, separando "processo vivo" de "dependências prontas" (`/actuator/health`).
 

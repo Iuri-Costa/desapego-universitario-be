@@ -374,11 +374,12 @@ A flag `moderado` está no response, mas não remove anúncio da busca; para iss
 | GET | `/healthz` | Pública | `curl https://seu-host/healthz` | `200` `{"status":"ok"}` (não consulta dependências) |
 | GET | `/actuator/health` | Pública | `curl https://seu-host/actuator/health` | `200` health completo |
 | GET | `/actuator/health/liveness` | Pública | `curl https://seu-host/actuator/health/liveness` | `200` liveness |
-| GET | `/actuator/info` | Pública | `curl https://seu-host/actuator/info` | `200` metadados da app |
-| GET | `/actuator/metrics` | Pública | `curl https://seu-host/actuator/metrics` | `200` nomes de métricas |
+| GET | `/actuator/health/liveness`, `/actuator/health/readiness` | Pública | `curl https://seu-host/actuator/health/liveness` | `200` probe |
+| GET | `/actuator/info` | Bearer | `curl -H "$AUTH" https://seu-host/actuator/info` | `200` metadados da app; `401` sem token |
+| GET | `/actuator/metrics` | ADMIN | `curl -H "$AUTH" https://seu-host/actuator/metrics` | `200` nomes de métricas; `401` sem token, `403` para usuário comum |
 | GET | `/v3/api-docs` | Pública | `curl https://seu-host/v3/api-docs` | `200` OpenAPI JSON canônico |
 | GET | `/openapi.json` | Pública | `curl https://seu-host/openapi.json` | `200` alias do documento OpenAPI |
 | GET | `/swagger-ui.html` | Pública | abrir no navegador | UI do Swagger |
 | GET | `/uploads/**` | Pública | `curl https://seu-host/uploads/anuncios/foto.jpg` | arquivo de imagem local |
 
-Somente `health`, `info` e `metrics` são expostos pelo Actuator. O CSP permite `self`, `script-src`, `style-src` e `connect-src` necessários ao Swagger UI, mantendo `frame-ancestors 'none'`.
+Somente `health`, `info` e `metrics` são expostos pelo Actuator; apenas health é público. O CSP permite `self`, `script-src`, `style-src` e `connect-src` necessários ao Swagger UI, mantendo `frame-ancestors 'none'`.

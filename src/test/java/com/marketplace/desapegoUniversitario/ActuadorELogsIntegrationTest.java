@@ -1,5 +1,6 @@
 package com.marketplace.desapegoUniversitario;
 
+import com.marketplace.desapegoUniversitario.repository.UsuarioRepository;
 import org.junit.jupiter.api.Test;
 import org.slf4j.MDC;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -28,17 +29,38 @@ class ActuadorELogsIntegrationTest {
     @Autowired
     private Environment environment;
 
+    @Autowired
+    private UsuarioRepository usuarioRepository;
+
     @Test
-    void deveExporHealthInfoEMetricasSemAutenticacao() throws Exception {
+    void deveExporSomenteHealthSemAutenticacao() throws Exception {
         mockMvc.perform(get("/actuator/health"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("UP"));
 
+        mockMvc.perform(get("/healthz"))
+                .andExpect(status().isOk());
+
         mockMvc.perform(get("/actuator/info"))
+                .andExpect(status().isUnauthorized());
+
+        mockMvc.perform(get("/actuator/metrics"))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void infoExigeAutenticacaoEMetricasExigemAdmin() throws Exception {
+        String usuario = TestAutenticacao.cadastrarELogar(mockMvc);
+        String admin = TestAutenticacao.cadastrarAdminELogar(mockMvc, usuarioRepository);
+
+        mockMvc.perform(get("/actuator/info").header("Authorization", "Bearer " + usuario))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.app.name").value("desapegoUniversitario"));
 
-        mockMvc.perform(get("/actuator/metrics"))
+        mockMvc.perform(get("/actuator/metrics").header("Authorization", "Bearer " + usuario))
+                .andExpect(status().isForbidden());
+
+        mockMvc.perform(get("/actuator/metrics").header("Authorization", "Bearer " + admin))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.names").isArray());
     }

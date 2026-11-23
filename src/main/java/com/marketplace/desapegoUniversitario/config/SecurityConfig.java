@@ -57,8 +57,9 @@ public class SecurityConfig {
                         .authenticationEntryPoint(authenticationEntryPoint)
                         .accessDeniedHandler(accessDeniedHandler))
                 .authorizeHttpRequests(regras -> regras
-                        .requestMatchers("/healthz", "/actuator/health", "/actuator/health/**",
-                                "/actuator/info", "/actuator/metrics").permitAll()
+                        .requestMatchers("/healthz", "/actuator/health", "/actuator/health/**")
+                        .permitAll()
+                        .requestMatchers("/actuator/metrics", "/actuator/metrics/**").hasRole("ADMIN")
                         .requestMatchers("/openapi.json", "/v3/api-docs", "/v3/api-docs/**",
                                 "/swagger-ui.html", "/swagger-ui/**", "/webjars/**").permitAll()
                         .requestMatchers(HttpMethod.POST,
