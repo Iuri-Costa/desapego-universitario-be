@@ -463,6 +463,7 @@ tratar pelo `codigo`, nunca pela mensagem.
 - **Observabilidade:** correlation id gerado/propagado por requisição no header `X-Correlation-Id` e no MDC; logs no formato estruturado `logstash`; Actuator expõe health (público), info (Bearer) e metrics (ADMIN).
 - **Deploy e CI:** imagem multi-stage com usuário não root e healthcheck, Compose com PostgreSQL, e pipeline GitHub Actions com build, testes e gate JaCoCo, relatórios de teste/cobertura publicados como artefatos, SpotBugs em job separado e build/push da imagem.
 - **Cold start:** `/healthz` responde sem consultar dependências, separando "processo vivo" de "dependências prontas" (`/actuator/health`).
+- **Licença e automação:** MIT (`LICENSE`), Dependabot para Maven e GitHub Actions, e job de CodeQL no CI.
 
 ---
 
