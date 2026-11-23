@@ -17,18 +17,25 @@ class ConfiguracaoProducaoTest {
     private static final Path ENV_EXEMPLO = Path.of(".env.example");
 
     @Test
-    void segredosNaoDevemTerDefaultNoPerfilProd() throws IOException {
+    void apenasSegredosEssenciaisNaoDevemTerDefaultNoPerfilProd() throws IOException {
         String conteudo = Files.readString(PROD);
 
-        for (String secret : List.of("app.jwt.secret=${JWT_SECRET}", "app.mail.username=${MAIL_USERNAME}",
-                "app.mail.password=${MAIL_PASSWORD}", "app.storage.s3.access-key=${S3_ACCESS_KEY}",
-                "app.storage.s3.secret-key=${S3_SECRET_KEY}", "app.fcm.credentials=${FCM_CREDENTIALS}",
-                "app.fcm.project-id=${FCM_PROJECT_ID}")) {
-            assertTrue(conteudo.contains(secret), "deve exigir: " + secret);
+        for (String obrigatorio : List.of("spring.datasource.url=${JDBC_URL}",
+                "spring.datasource.username=${DB_USERNAME}", "spring.datasource.password=${DB_PASSWORD}",
+                "app.jwt.secret=${JWT_SECRET}")) {
+            assertTrue(conteudo.contains(obrigatorio), "deve exigir: " + obrigatorio);
         }
         assertFalse(conteudo.contains("${JWT_SECRET:"));
-        assertFalse(conteudo.contains("${MAIL_PASSWORD:"));
-        assertFalse(conteudo.contains("${S3_SECRET_KEY:"));
+        assertFalse(conteudo.contains("${JDBC_URL:"));
+        assertFalse(conteudo.contains("${DB_USERNAME:"));
+        assertFalse(conteudo.contains("${DB_PASSWORD:"));
+
+        for (String opcional : List.of("app.mail.username=${MAIL_USERNAME:}",
+                "app.mail.password=${MAIL_PASSWORD:}", "app.storage.s3.access-key=${S3_ACCESS_KEY:}",
+                "app.storage.s3.secret-key=${S3_SECRET_KEY:}", "app.fcm.credentials=${FCM_CREDENTIALS:}",
+                "app.fcm.project-id=${FCM_PROJECT_ID:}")) {
+            assertTrue(conteudo.contains(opcional), "integração opcional sem default vazio: " + opcional);
+        }
     }
 
     @Test
