@@ -27,7 +27,7 @@ Toda mudança de contrato deve atualizar esse arquivo e ser revisada antes do me
 | IDs | UUID no formato canonical (8-4-4-4-12) |
 | Enums | Nomes em `UPPER_SNAKE_CASE`, estáveis; entrada aceita qualquer caixa |
 | Paginação | `page` (base 0), `size` (1–100, default 20) e resposta `PaginadoDTO<T>` com `content`, `page`, `size`, `totalElements`, `totalPages`, `first`, `last` |
-| Erros | `ErroResponse` com `timestamp`, `status`, `codigo`, `mensagem`, `caminho`, `erros` |
+| Erros | `ErroResponse` com `timestamp`, `status`, `codigo`, `mensagem`, `caminho`, `correlationId`, `erros` |
 | Autenticação | `Authorization: Bearer <accessToken>` |
 
 Clientes **não devem** depender da ordem das chaves JSON, de campos não documentados nem de valores de enum não listados no OpenAPI.

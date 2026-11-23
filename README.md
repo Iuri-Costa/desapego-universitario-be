@@ -413,13 +413,13 @@ Documentação completa, payloads e códigos de resposta em [docs/API.md](docs/A
 | POST / DELETE | `/api/v1/anuncios/{id}/favoritos` | Bearer; não permite próprio anúncio, duplicado retorna 409 |
 | GET | `/api/v1/usuarios/me/favoritos` | Bearer; paginado |
 | POST / GET | `/api/v1/anuncios/{id}/mensagens` | Bearer; somente comprador da reserva e vendedor |
-| GET | `/api/v1/mensagens/conversas` | Bearer; lista conversas do usuário |
+| GET | `/api/v1/mensagens/conversas` (alias: `/api/v1/usuarios/me/conversas`) | Bearer; lista conversas do usuário |
 | PATCH | `/api/v1/mensagens/{id}/lida` | Bearer |
 | POST / GET / DELETE | `/api/v1/anuncios/{id}/reserva` | Bearer; GET só para comprador/vendedor |
 | GET | `/api/v1/usuarios/me/reservas` | Bearer; histórico paginado, reservas expiram após `RESERVA_TTL` |
 | POST | `/api/v1/anuncios/{id}/conclusao` | Bearer |
 | POST | `/api/v1/anuncios/{id}/avaliacoes` | Bearer |
-| GET | `/api/v1/usuarios/{id}/avaliacoes` | Público |
+| GET | `/api/v1/usuarios/{id}/avaliacoes` | Bearer; média e histórico de avaliações do vendedor |
 | GET / PATCH | `/api/v1/usuarios/me` | Bearer; PATCH edita `nome`, `contato` e `avatar` (URL `/uploads/` ou `https://`) |
 | GET | `/api/v1/usuarios/me/anuncios` | Bearer; histórico paginado |
 | POST | `/api/v1/anuncios/{id}/denuncias` | Bearer; `motivo` é enum (`FRAUDE`, `SPAM`, `PRODUTO_PROIBIDO`, `DUPLICADO`, `OFENSA`, `OUTROS`) |
@@ -436,14 +436,14 @@ Documentação completa, payloads e códigos de resposta em [docs/API.md](docs/A
 | POST | `/api/v1/admin/denuncias/{id}/resolucao` | ADMIN |
 | PATCH | `/api/v1/admin/anuncios/{id}/moderacao` | ADMIN |
 | DELETE | `/api/v1/admin/anuncios/{id}` | ADMIN |
-| GET | `/healthz`, `/actuator/health`, `/actuator/health/**` | Público; health leve (Render) e health completo |
+| GET | `/healthz`, `/actuator/health`, `/actuator/health/**` | Público; health leve (Render), health completo e probes (`liveness`, `readiness`) |
 | GET | `/actuator/info` | Bearer; metadados da aplicação |
 | GET | `/actuator/metrics` | ADMIN; nomes de métricas |
-| GET | `/openapi.json`, `/swagger-ui.html` | Documentação |
+| GET | `/v3/api-docs`, `/openapi.json`, `/swagger-ui.html` | Documentação |
 
 Paginações usam `page` (base 0), `size` (1–100, padrão 20) e o envelope `PaginadoDTO<T>` com
 `content`, `page`, `size`, `totalElements`, `totalPages`, `first` e `last`. Erros seguem o
-`ErroResponse` (`timestamp`, `status`, `codigo`, `mensagem`, `caminho`, `erros`); clientes devem
+`ErroResponse` (`timestamp`, `status`, `codigo`, `mensagem`, `caminho`, `correlationId`, `erros`); clientes devem
 tratar pelo `codigo`, nunca pela mensagem.
 
 ---
@@ -453,7 +453,7 @@ tratar pelo `codigo`, nunca pela mensagem.
 - **DTOs nas bordas:** entidades nunca são expostas diretamente; `Usuario` jamais trafega com a senha, e os DTOs carregam exemplos no OpenAPI.
 - **UUID e datas canonizadas:** IDs UUID e `Instant` em UTC eliminam ambiguidade de timezone entre cliente, API e banco.
 - **Enums estáveis:** persistência como string em `UPPER_SNAKE_CASE`, aceitação case-insensitive na entrada e `CHECK` constraints no banco.
-- **Migrações aditivas:** Flyway `V1`–`V14` sem destruir dados; `V13` normaliza enums e `V14` cria índices para os filtros mais usados.
+- **Migrações aditivas:** Flyway `V1`–`V18` sem destruir dados; `V13` normaliza enums, `V14` cria índices para os filtros mais usados e as versões seguintes evoluíram reserva, imagens, perfil e motivos de denúncia.
 - **Busca controlada:** `Specification` com whitelist de ordenação e validação de `page`/`size`/faixa de preço, evitando SQL dinâmico arbitrário e consultas custosas.
 - **Cache curto:** Caffeine com TTL de 30 s nas listagens públicas e invalidação em escritas; dados obsoletos ficam limitados a essa janela.
 - **Tokens com rotação:** access token de 15 min e refresh de 7 dias de uso único; reutilização revoga a família de tokens. Hash de tokens e senhas nunca é logado.
@@ -491,6 +491,6 @@ Exemplo 6 — deploy e cold start:
 Solicitei Dockerfile multi-stage com usuário não root, Compose com PostgreSQL e um health check leve para o Render. Defini `/healthz` separado do `/actuator/health` para não confundir "processo vivo" com "banco pronto", e documentei o caminho no README.
 
 ### Reflexão Crítica
-A implementação de JWT chegou a funcionar, mas percebi que mantê-la comprometeria o tempo necessário pra entregar o restante do desafio dentro do prazo. Removi essa parte do projeto, mantendo cadastro e login com validação de email/senha (hash via BCrypt), sem geração de token. Foi um momento de precisar avaliar criticamente o que a IA ajudou a construir — só porque algo funciona não significa que cabe no escopo e no tempo disponíveis.
+A implementação de JWT chegou a funcionar, mas percebi que mantê-la comprometeria o tempo necessário pra entregar o restante do desafio dentro do prazo. Naquele momento, removi o JWT do escopo e mantive cadastro e login apenas com validação de email/senha (hash via BCrypt), sem geração de token. Foi um momento de precisar avaliar criticamente o que a IA ajudou a construir — só porque algo funciona não significa que cabe no escopo e no tempo disponíveis. O JWT depois voltou ao escopo (Fases 4 e 5), com access token, refresh de uso único e rotação com revogação por família; o código atual reflete essa segunda decisão.
 
 Reflexão adicional (Fases 4 e 5): o JWT voltou ao escopo depois que o core do marketplace ficou estável, com rotação de refresh e revogação por família. Decisões posteriores priorizaram contrato previsível para o cliente Kotlin, migrações sem perda de dados e observabilidade desde o primeiro deploy — cada mudança de contrato passou a ser revisada no `openapi.json` e acompanhada de teste de integração.
