@@ -1,6 +1,6 @@
 # API — Desapego Universitário
 
-Última revisão: 2026-11-22. Este documento descreve o código atual do backend.
+Última revisão: 2026-11-23. Este documento descreve o código atual do backend.
 O contrato gerado automaticamente está em `/v3/api-docs` (alias legado: `/openapi.json`) e a UI em `/swagger-ui.html`.
 Todas as rotas de negócio usam o prefixo `/api/v1`; rotas de infraestrutura estão listadas no final.
 [Política de versionamento](VERSIONAMENTO.md).
@@ -12,6 +12,7 @@ Todas as rotas de negócio usam o prefixo `/api/v1`; rotas de infraestrutura est
 - Valores monetários são JSON number com até 2 casas decimais (`80.00`).
 - Enums são upper-case.
 - Toda resposta de erro usa `ErroResponse`, inclusive 401/403 dos filtros de segurança e 429 do rate limit.
+- Rotas marcadas como **Bearer** respondem `401` (`NAO_AUTENTICADO`) sem token ou com token inválido; rotas marcadas como **ADMIN** respondem `403` (`ACESSO_NEGADO`) para usuário autenticado sem `ROLE_ADMIN`. Rotas **Públicas** não exigem token.
 - `page` começa em 0; `size` vai de 1 a 100 (padrão 20).
 - `sort` usa `campo,direcao`, separado por `;` para múltiplos campos. Ex.: `preco,asc;criadoEm,desc`.
 - Campos permitidos em `sort`: `titulo`, `preco`, `categoria`, `condicao`, `tipo`, `status`, `campus`, `criadoEm`, `atualizadoEm`.
