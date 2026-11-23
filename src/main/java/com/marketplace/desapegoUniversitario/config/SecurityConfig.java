@@ -68,6 +68,8 @@ public class SecurityConfig {
                                 "/api/v1/auth/login", "/api/v1/auth/refresh").permitAll()
                         .requestMatchers("/api/v1/anuncios/*/mensagens", "/api/v1/mensagens/**")
                         .authenticated()
+                        .requestMatchers(HttpMethod.GET, "/api/v1/anuncios/*/imagens",
+                                "/api/v1/anuncios/*/reserva").authenticated()
                         .requestMatchers(HttpMethod.GET, "/api/v1/anuncios", "/api/v1/anuncios/**",
                                 "/uploads/**").permitAll()
                         .requestMatchers("/api/v1/admin/**").hasRole("ADMIN")
