@@ -40,8 +40,8 @@ rotas `/api/v1/admin/**` e `/actuator/metrics` exigem `ROLE_ADMIN`.
 | Segurança | Spring Security + JWT JJWT 0.12.6, BCrypt, CORS, rate limit por IP e por e-mail |
 | Persistência | PostgreSQL 16, Hibernate, Spring Data JPA, Flyway (V1–V18) |
 | Cache | Caffeine (máx. 500 entradas, TTL de 30 s) |
-| Documentação | springdoc-openapi 3.2.0 (Swagger UI + `/openapi.json`) |
-| Armazenamento | AWS SDK S3 2.31.78 (S3 ou compatível) ou disco local em desenvolvimento |
+| Documentação | springdoc-openapi 3.2.1 (Swagger UI + `/openapi.json`) |
+| Armazenamento | AWS SDK S3 2.59.7 (S3 ou compatível) ou disco local em desenvolvimento |
 | Notificações | Firebase Cloud Messaging (opcional) + persistência de notificações |
 | Build | Maven Wrapper (`./mvnw`), Lombok |
 | Testes | JUnit 5, Mockito, MockMvc, H2 em modo PostgreSQL, Testcontainers |

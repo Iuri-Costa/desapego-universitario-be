@@ -374,7 +374,6 @@ A flag `moderado` está no response, mas não remove anúncio da busca; para iss
 |---|---|---|---|---|
 | GET | `/healthz` | Pública | `curl https://seu-host/healthz` | `200` `{"status":"ok"}` (não consulta dependências) |
 | GET | `/actuator/health` | Pública | `curl https://seu-host/actuator/health` | `200` health completo |
-| GET | `/actuator/health/liveness` | Pública | `curl https://seu-host/actuator/health/liveness` | `200` liveness |
 | GET | `/actuator/health/liveness`, `/actuator/health/readiness` | Pública | `curl https://seu-host/actuator/health/liveness` | `200` probe |
 | GET | `/actuator/info` | Bearer | `curl -H "$AUTH" https://seu-host/actuator/info` | `200` metadados da app; `401` sem token |
 | GET | `/actuator/metrics` | ADMIN | `curl -H "$AUTH" https://seu-host/actuator/metrics` | `200` nomes de métricas; `401` sem token, `403` para usuário comum |

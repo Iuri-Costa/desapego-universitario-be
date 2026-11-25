@@ -14,6 +14,4 @@ public interface UsuarioTokenRepository extends JpaRepository<UsuarioToken, UUID
     Optional<UsuarioToken> findByTokenHashAndTipoAndUsadoEmIsNull(String tokenHash, TipoToken tipo);
 
     List<UsuarioToken> findByUsuarioAndTipoAndUsadoEmIsNull(Usuario usuario, TipoToken tipo);
-
-    void deleteByUsuario(Usuario usuario);
 }
