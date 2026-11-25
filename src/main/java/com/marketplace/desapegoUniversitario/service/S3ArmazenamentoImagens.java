@@ -42,6 +42,7 @@ public class S3ArmazenamentoImagens implements ArmazenamentoImagens {
             construtor.endpointOverride(URI.create(endpoint))
                     .serviceConfiguration(S3Configuration.builder()
                             .pathStyleAccessEnabled(true)
+                            .chunkedEncodingEnabled(false)
                             .build());
         }
         if (!chaveAcesso.isBlank() && !chaveSecreta.isBlank()) {
