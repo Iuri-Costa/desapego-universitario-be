@@ -13,8 +13,6 @@ import java.util.Optional;
 import java.util.UUID;
 
 public interface AnuncioRepository extends JpaRepository<Anuncio, UUID>, JpaSpecificationExecutor<Anuncio> {
-    List<Anuncio> findByCategoria(Categoria categoria);
-
     List<Anuncio> findAllByRemovidoEmIsNull();
 
     List<Anuncio> findByCategoriaAndRemovidoEmIsNull(Categoria categoria);

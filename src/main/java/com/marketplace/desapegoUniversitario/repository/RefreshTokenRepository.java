@@ -18,9 +18,5 @@ public interface RefreshTokenRepository extends JpaRepository<RefreshToken, UUID
     @Query("select t from RefreshToken t where t.tokenHash = :hash")
     Optional<RefreshToken> findByHashForUpdate(@Param("hash") String hash);
 
-    Optional<RefreshToken> findByTokenHash(String hash);
-
     List<RefreshToken> findByUsuarioAndRevogadoEmIsNull(Usuario usuario);
-
-    void deleteByUsuario(Usuario usuario);
 }
