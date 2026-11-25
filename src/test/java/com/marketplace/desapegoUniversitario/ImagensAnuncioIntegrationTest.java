@@ -16,6 +16,8 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -52,6 +54,11 @@ class ImagensAnuncioIntegrationTest {
                 .andExpect(jsonPath("$[0].url").value(org.hamcrest.Matchers.startsWith("/uploads/")))
                 .andReturn().getResponse().getContentAsString();
         String urlPrimeira = com.jayway.jsonpath.JsonPath.read(corpo, "$[0].url");
+
+        mockMvc.perform(get(urlPrimeira))
+                .andExpect(status().isOk())
+                .andExpect(header().string("Content-Type", "image/png"))
+                .andExpect(content().bytes(PNG));
 
         mockMvc.perform(get("/api/v1/anuncios/{id}", id))
                 .andExpect(status().isOk())

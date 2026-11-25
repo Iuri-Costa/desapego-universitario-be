@@ -16,11 +16,14 @@ public class LocalArmazenamentoImagens implements ArmazenamentoImagens {
 
     private final Path diretorio;
     private final String caminhoPublico;
+    private final String basePublica;
 
     public LocalArmazenamentoImagens(@Value("${app.storage.local.diretorio}") String diretorio,
-                                     @Value("${app.storage.local.caminho-publico}") String caminhoPublico) {
+                                     @Value("${app.storage.local.caminho-publico}") String caminhoPublico,
+                                     @Value("${app.storage.url-base:}") String basePublica) {
         this.diretorio = Path.of(diretorio).toAbsolutePath().normalize();
         this.caminhoPublico = caminhoPublico;
+        this.basePublica = basePublica == null ? "" : basePublica.trim();
     }
 
     @PostConstruct
@@ -37,7 +40,13 @@ public class LocalArmazenamentoImagens implements ArmazenamentoImagens {
                 Files.createDirectories(pai);
             }
             Files.write(destino, conteudo);
-            return caminhoPublico + "/" + chave;
+            String relativa = caminhoPublico + "/" + chave;
+            if (basePublica.isEmpty()) {
+                return relativa;
+            }
+            return basePublica.endsWith("/")
+                    ? basePublica.substring(0, basePublica.length() - 1) + relativa
+                    : basePublica + relativa;
         } catch (IOException e) {
             throw new IllegalStateException("Falha ao armazenar imagem", e);
         }
