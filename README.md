@@ -38,7 +38,7 @@ rotas `/api/v1/admin/**` e `/actuator/metrics` exigem `ROLE_ADMIN`.
 | Linguagem / runtime | Java 21 |
 | Framework | Spring Boot 4.1.0 (Web MVC, Validation, Data JPA, Security, Mail, Cache, Actuator) |
 | Segurança | Spring Security + JWT JJWT 0.12.6, BCrypt, CORS, rate limit por IP e por e-mail |
-| Persistência | PostgreSQL 16, Hibernate, Spring Data JPA, Flyway (V1–V18) |
+| Persistência | PostgreSQL 16, Hibernate, Spring Data JPA, Flyway (V1–V20) |
 | Cache | Caffeine (máx. 500 entradas, TTL de 30 s) |
 | Documentação | springdoc-openapi 3.2.1 (Swagger UI + `/openapi.json`) |
 | Armazenamento | AWS SDK S3 2.59.7 (S3 ou compatível) ou disco local em desenvolvimento |
@@ -59,7 +59,7 @@ flowchart LR
     Filtros --> Controller["Controllers<br/>DTO + Bean Validation"]
     Controller --> Service["Services<br/>regras de negócio"]
     Service --> Repository["Repositories + Specifications"]
-    Repository --> DB[("PostgreSQL 16<br/>Flyway V1–V18")]
+    Repository --> DB[("PostgreSQL 16<br/>Flyway V1–V20")]
     Service --> Cache[("Caffeine<br/>TTL 30s")]
     Service --> Storage{"S3_BUCKET definido?"}
     Storage -->|não| Local["Disco local<br/>/uploads/**"]
@@ -265,12 +265,14 @@ e serializadas como ISO 8601 UTC (`...Z`); enums usam `@Enumerated(EnumType.STRI
 `UPPER_SNAKE_CASE` com `CHECK` constraints; a remoção de anúncio é lógica (`removido_em`).
 
 As migrações Flyway (`src/main/resources/db/migration`) evoluíram de `V1__baseline` até
-`V18__motivo_denuncia_enum`. Todas são aditivas: `V13` normaliza enums e adiciona constraints sem
+`V19__reserva_unica_ativa`. Todas são aditivas: `V13` normaliza enums e adiciona constraints sem
 recriar tabelas; `V14` cria índices para listagem por `removido_em/criado_em`, categoria,
 preço, status e usuário; `V16` adiciona `ordem`/`capa` às imagens e espelha a capa no campo
 legado `anuncio.imagem`; `V17` adiciona `contato` e `avatar` ao perfil; `V18` normaliza o
-motivo das denúncias em enum. O Hibernate roda com `ddl-auto=validate` e o Flyway com
-`clean-disabled=true`.
+motivo das denúncias em enum; `V19` expira reservas ativas duplicadas em bases antigas. A
+`V20__reserva_unica_ativa` é específica por banco (`src/main/resources/db/vendor/{h2,postgresql}`)
+e cria a unique index que impede duas reservas ativas no mesmo anúncio. O Hibernate roda com
+`ddl-auto=validate` e o Flyway com `clean-disabled=true`.
 
 ---
 
@@ -291,15 +293,22 @@ A API sobe em `http://localhost:8080`. Para subir só o banco com Docker:
 docker compose up -d db
 ```
 
-Para executar o jar já empacotado:
+Para executar o jar já empacotado, defina o perfil e o segredo explicitamente (a aplicação
+falha no startup se `JWT_SECRET` estiver ausente ou com menos de 32 bytes):
 
 ```bash
 ./mvnw package -DskipTests
-java -jar target/desapegoUniversitario-0.0.1-SNAPSHOT.jar
+SPRING_PROFILES_ACTIVE=prod JWT_SECRET='...' \
+  JDBC_URL='jdbc:postgresql://localhost:5432/desapego_universitario' \
+  DB_USERNAME='...' DB_PASSWORD='...' \
+  CORS_ALLOWED_ORIGINS='https://frontend.real' FRONTEND_URL='https://frontend.real' \
+  java -jar target/desapegoUniversitario-0.0.1-SNAPSHOT.jar
 ```
 
-**Perfis:** `dev` (padrão, PostgreSQL local), `test` (H2 em memória) e `prod` (PostgreSQL de
-produção). O perfil é definido por `SPRING_PROFILES_ACTIVE`.
+**Perfis:** `dev` (PostgreSQL local), `test` (H2 em memória) e `prod` (PostgreSQL de
+produção). Não há perfil padrão: `SPRING_PROFILES_ACTIVE` é obrigatório em qualquer deploy.
+`JWT_SECRET` também é obrigatório em todos os perfis, inclusive `dev`, e deve ter ao menos
+32 bytes.
 
 ### Docker
 
@@ -314,7 +323,10 @@ docker compose down -v            # remove também o volume
 ```
 
 A API fica em `http://localhost:8080`. Variáveis como `API_PORT`, `DB_PORT`, `DB_NAME`,
-`DB_USERNAME`, `DB_PASSWORD` e `JWT_SECRET` são lidas do `.env` pelo Compose.
+`DB_USERNAME`, `DB_PASSWORD` e `JWT_SECRET` são lidas do `.env` pelo Compose. Em produção,
+`DB_PASSWORD`, `JWT_SECRET`, `CORS_ALLOWED_ORIGINS` e `FRONTEND_URL` são obrigatórios: o
+Compose falha se algum deles estiver vazio, evitando CORS bloqueado e links de e-mail
+apontando para `localhost`.
 
 **Render:** configure o *Health Check Path* como `/healthz`. Ele responde
 `200 {"status":"ok"}` sem tocar banco ou dependências externas, evitando falsos negativos no
@@ -455,7 +467,7 @@ tratar pelo `codigo`, nunca pela mensagem.
 - **DTOs nas bordas:** entidades nunca são expostas diretamente; `Usuario` jamais trafega com a senha, e os DTOs carregam exemplos no OpenAPI.
 - **UUID e datas canonizadas:** IDs UUID e `Instant` em UTC eliminam ambiguidade de timezone entre cliente, API e banco.
 - **Enums estáveis:** persistência como string em `UPPER_SNAKE_CASE`, aceitação case-insensitive na entrada e `CHECK` constraints no banco.
-- **Migrações aditivas:** Flyway `V1`–`V18` sem destruir dados; `V13` normaliza enums, `V14` cria índices para os filtros mais usados e as versões seguintes evoluíram reserva, imagens, perfil e motivos de denúncia.
+- **Migrações aditivas:** Flyway `V1`–`V20` sem destruir dados (a `V20` é por vendor do banco); `V13` normaliza enums, `V14` cria índices para os filtros mais usados e as versões seguintes evoluíram reserva, imagens, perfil e motivos de denúncia.
 - **Busca controlada:** `Specification` com whitelist de ordenação e validação de `page`/`size`/faixa de preço, evitando SQL dinâmico arbitrário e consultas custosas.
 - **Cache curto:** Caffeine com TTL de 30 s nas listagens públicas e invalidação em escritas; dados obsoletos ficam limitados a essa janela.
 - **Tokens com rotação:** access token de 15 min e refresh de 7 dias de uso único; reutilização revoga a família de tokens. Hash de tokens e senhas nunca é logado.
