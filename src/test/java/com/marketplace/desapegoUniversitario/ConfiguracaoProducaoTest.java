@@ -39,13 +39,28 @@ class ConfiguracaoProducaoTest {
     }
 
     @Test
+    void perfilNaoDeveTerDefaultComSegredoConhecido() throws IOException {
+        String principal = Files.readString(Path.of("src/main/resources/application.properties"));
+        assertFalse(principal.contains("spring.profiles.default="),
+                "o perfil deve ser explícito em qualquer deploy");
+
+        String dev = Files.readString(Path.of("src/main/resources/application-dev.properties"));
+        assertTrue(dev.contains("app.jwt.secret=${JWT_SECRET}"));
+        assertFalse(dev.contains("${JWT_SECRET:"), "dev não pode ter segredo JWT conhecido");
+    }
+
+    @Test
     void composeNaoDeveTrazerSenhasOuSegredosPadrao() throws IOException {
         String conteudo = Files.readString(COMPOSE);
 
         assertTrue(conteudo.contains("${DB_PASSWORD:?defina DB_PASSWORD no .env}"));
         assertTrue(conteudo.contains("${JWT_SECRET:?defina JWT_SECRET no .env"));
+        assertTrue(conteudo.contains("${CORS_ALLOWED_ORIGINS:?defina CORS_ALLOWED_ORIGINS no .env}"));
+        assertTrue(conteudo.contains("${FRONTEND_URL:?defina FRONTEND_URL no .env}"));
         assertFalse(conteudo.contains("${DB_PASSWORD:-postgres}"));
         assertFalse(conteudo.contains("${JWT_SECRET:-troque"));
+        assertFalse(conteudo.contains("CORS_ALLOWED_ORIGINS:-http://localhost"));
+        assertFalse(conteudo.contains("FRONTEND_URL:-http://localhost"));
 
         for (String opcional : List.of("MAIL_USERNAME:-", "MAIL_PASSWORD:-", "S3_ACCESS_KEY:-",
                 "S3_SECRET_KEY:-", "S3_PUBLIC_BASE_URL:-", "FCM_CREDENTIALS:-", "FCM_PROJECT_ID:-")) {
@@ -63,10 +78,23 @@ class ConfiguracaoProducaoTest {
         for (String variavel : List.of("API_PORT", "DB_NAME", "DB_PORT", "DB_PASSWORD", "JWT_SECRET",
                 "ADMIN_BOOTSTRAP_EMAIL", "MAIL_USERNAME", "MAIL_PASSWORD", "S3_ACCESS_KEY", "S3_SECRET_KEY",
                 "S3_PUBLIC_BASE_URL", "FCM_CREDENTIALS", "FCM_PROJECT_ID", "OPENAPI_ENABLED",
-                "SWAGGER_UI_ENABLED", "APP_VERSION")) {
+                "SWAGGER_UI_ENABLED", "APP_VERSION", "CORS_ALLOWED_ORIGINS", "FRONTEND_URL")) {
             assertTrue(conteudo.contains(variavel + "="), "variável ausente: " + variavel);
         }
         assertFalse(conteudo.contains("JWT_SECRET=troque"));
         assertFalse(conteudo.contains("DB_PASSWORD=postgres"));
+    }
+
+    @Test
+    void pipelineNaoDevePublicarImagemSemOsChecks() throws IOException {
+        String ci = Files.readString(Path.of(".github/workflows/ci.yml"));
+        int inicioDocker = ci.indexOf("  docker:");
+        assertTrue(inicioDocker >= 0, "job docker ausente");
+
+        String jobDocker = ci.substring(inicioDocker);
+        assertTrue(jobDocker.contains("needs: [build, static-analysis, codeql]"),
+                "a imagem não pode ser publicada antes de build, análise estática e CodeQL");
+        assertTrue(jobDocker.contains("type=sha,format=short"),
+                "a imagem deve ser rastreável pelo SHA do commit");
     }
 }
