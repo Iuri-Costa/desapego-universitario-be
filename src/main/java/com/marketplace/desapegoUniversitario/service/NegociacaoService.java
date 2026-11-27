@@ -22,6 +22,7 @@ import com.marketplace.desapegoUniversitario.repository.ReservaRepository;
 import com.marketplace.desapegoUniversitario.repository.UsuarioRepository;
 import com.marketplace.desapegoUniversitario.util.Paginas;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.security.access.AccessDeniedException;
@@ -63,7 +64,7 @@ public class NegociacaoService {
     @Transactional
     public AnuncioResponseDTO reservar(UUID anuncioId, String emailUsuario) {
         expirarVencidas();
-        Anuncio anuncio = buscarAnuncio(anuncioId);
+        Anuncio anuncio = buscarAnuncioParaReserva(anuncioId);
         Usuario comprador = buscarUsuario(emailUsuario);
         Usuario vendedor = exigirVendedor(anuncio);
 
@@ -82,8 +83,14 @@ public class NegociacaoService {
             throw new ConflitoException("Este anúncio não está disponível para reserva");
         }
 
-        reservaRepository.save(new Reserva(
-                null, anuncio, comprador, Instant.now(), null, null, null));
+        try {
+            reservaRepository.saveAndFlush(new Reserva(
+                    null, anuncio, comprador, Instant.now(), null, null, null));
+        } catch (DataIntegrityViolationException e) {
+            // A unique index da coluna gerada é a última linha de defesa contra duas
+            // reservas ativas simultaneamente; sem ela a checagem acima sofre TOCTOU.
+            throw new ConflitoException("Este anúncio já está reservado");
+        }
         AnuncioResponseDTO resposta = anuncioService.alterarStatus(anuncio, StatusAnuncio.RESERVADO);
         notificacaoService.notificar(vendedor.getId(), "Anúncio reservado",
                 "Seu anúncio '" + anuncio.getTitulo() + "' foi reservado", "RESERVA", anuncioId);
@@ -259,6 +266,11 @@ public class NegociacaoService {
 
     private Anuncio buscarAnuncio(UUID id) {
         return anuncioRepository.findByIdAndRemovidoEmIsNull(id)
+                .orElseThrow(() -> new RecursoNaoEncontradoException("Anúncio não encontrado"));
+    }
+
+    private Anuncio buscarAnuncioParaReserva(UUID id) {
+        return anuncioRepository.findByIdForUpdate(id)
                 .orElseThrow(() -> new RecursoNaoEncontradoException("Anúncio não encontrado"));
     }
 
