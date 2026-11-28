@@ -10,6 +10,7 @@ import org.springframework.http.MediaType;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -164,6 +165,25 @@ class AutenticacaoIntegrationTest {
                         .content("""
                                 {"refreshToken":"%s"}
                                 """.formatted(refresh)))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void logoutDeveRevogarAccessTokenImediatamente() throws Exception {
+        String email = TestAutenticacao.novoEmail();
+        TestAutenticacao.cadastrar(mockMvc, email);
+        String access = TestAutenticacao.login(mockMvc, email);
+
+        mockMvc.perform(get("/api/v1/usuarios/me")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + access))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(post("/api/v1/auth/logout")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + access))
+                .andExpect(status().isNoContent());
+
+        mockMvc.perform(get("/api/v1/usuarios/me")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + access))
                 .andExpect(status().isUnauthorized());
     }
 

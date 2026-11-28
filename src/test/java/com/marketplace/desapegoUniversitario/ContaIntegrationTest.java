@@ -9,6 +9,7 @@ import org.springframework.http.MediaType;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -109,6 +110,7 @@ class ContaIntegrationTest {
         String email = TestAutenticacao.novoEmail();
         TestAutenticacao.cadastrar(mockMvc, email);
         String refresh = TestAutenticacao.refreshToken(mockMvc, email);
+        String accessAntigo = TestAutenticacao.login(mockMvc, email);
 
         mockMvc.perform(post("/api/v1/usuarios/recuperar-senha")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -124,6 +126,10 @@ class ContaIntegrationTest {
                                 {"token":"%s","novaSenha":"Nova@Senha123"}
                                 """.formatted(token)))
                 .andExpect(status().isNoContent());
+
+        mockMvc.perform(get("/api/v1/usuarios/me")
+                        .header("Authorization", "Bearer " + accessAntigo))
+                .andExpect(status().isUnauthorized());
 
         mockMvc.perform(post("/api/v1/usuarios/login")
                         .contentType(MediaType.APPLICATION_JSON)
