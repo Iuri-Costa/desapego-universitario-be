@@ -21,12 +21,14 @@ public class FcmConfig {
 
     @Bean
     @Conditional(FcmCondition.class)
-    public RestClient fcmRestClient() {
+    public RestClient fcmRestClient(@Value("${app.fcm.read-timeout:5s}") Duration readTimeout) {
         HttpClient httpClient = HttpClient.newBuilder()
                 .connectTimeout(Duration.ofSeconds(5))
                 .build();
+        JdkClientHttpRequestFactory fabrica = new JdkClientHttpRequestFactory(httpClient);
+        fabrica.setReadTimeout(readTimeout);
         return RestClient.builder()
-                .requestFactory(new JdkClientHttpRequestFactory(httpClient))
+                .requestFactory(fabrica)
                 .build();
     }
 
