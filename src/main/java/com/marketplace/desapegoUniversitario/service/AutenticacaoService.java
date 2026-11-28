@@ -87,7 +87,11 @@ public class AutenticacaoService {
         }
 
         Usuario usuario = atual.getUsuario();
-        String novoRefreshToken = jwtService.gerarRefreshToken(usuario.getEmail());
+        if (!jwtService.versaoValida(claims, usuario.getTokenVersion())) {
+            revogarTodos(usuario);
+            throw new TokenInvalidoException(MENSAGEM_TOKEN_INVALIDO);
+        }
+        String novoRefreshToken = jwtService.gerarRefreshToken(usuario.getEmail(), usuario.getTokenVersion());
         Instant agora = Instant.now();
         atual.setRevogadoEm(agora);
         atual.setSubstituidoPor(jwtService.hash(novoRefreshToken));
@@ -99,8 +103,8 @@ public class AutenticacaoService {
         refreshTokenRepository.save(novo);
 
         return new TokenResponseDTO(
-                jwtService.gerarAccessToken(usuario.getEmail()), novoRefreshToken, "Bearer",
-                jwtService.getAccessTtl().toSeconds());
+                jwtService.gerarAccessToken(usuario.getEmail(), usuario.getTokenVersion()),
+                novoRefreshToken, "Bearer", jwtService.getAccessTtl().toSeconds());
     }
 
     @Transactional
@@ -110,14 +114,14 @@ public class AutenticacaoService {
 
     private TokenResponseDTO emitirTokens(Usuario usuario) {
         Instant agora = Instant.now();
-        String refreshToken = jwtService.gerarRefreshToken(usuario.getEmail());
+        String refreshToken = jwtService.gerarRefreshToken(usuario.getEmail(), usuario.getTokenVersion());
         refreshTokenRepository.save(new RefreshToken(
                 UUID.randomUUID(), usuario, jwtService.hash(refreshToken),
                 agora.plus(jwtService.getRefreshTtl()), null, null, agora));
 
         return new TokenResponseDTO(
-                jwtService.gerarAccessToken(usuario.getEmail()), refreshToken, "Bearer",
-                jwtService.getAccessTtl().toSeconds());
+                jwtService.gerarAccessToken(usuario.getEmail(), usuario.getTokenVersion()),
+                refreshToken, "Bearer", jwtService.getAccessTtl().toSeconds());
     }
 
     private void revogarTodos(Usuario usuario) {
@@ -125,5 +129,7 @@ public class AutenticacaoService {
         List<RefreshToken> tokens = refreshTokenRepository.findByUsuarioAndRevogadoEmIsNull(usuario);
         tokens.forEach(token -> token.setRevogadoEm(agora));
         refreshTokenRepository.saveAll(tokens);
+        usuario.setTokenVersion(usuario.getTokenVersion() + 1);
+        usuarioRepository.save(usuario);
     }
 }

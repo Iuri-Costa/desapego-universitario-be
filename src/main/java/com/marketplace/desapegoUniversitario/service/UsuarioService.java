@@ -100,6 +100,7 @@ public class UsuarioService {
     public void redefinirSenha(RedefinirSenhaDTO dto) {
         Usuario usuario = usuarioTokenService.consumir(dto.token(), TipoToken.REDEFINICAO_SENHA);
         usuario.setSenha(passwordEncoder.encode(dto.novaSenha()));
+        usuario.setTokenVersion(usuario.getTokenVersion() + 1);
         usuarioRepository.save(usuario);
 
         var sessoes = refreshTokenRepository.findByUsuarioAndRevogadoEmIsNull(usuario);
