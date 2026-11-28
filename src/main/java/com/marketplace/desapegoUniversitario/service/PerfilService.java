@@ -18,6 +18,7 @@ import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.function.Consumer;
@@ -85,7 +86,8 @@ public class PerfilService {
         Usuario usuario = buscarUsuario(emailUsuario);
         PageRequest paginacao = Paginas.de(page, size, Sort.by(Sort.Direction.DESC, "criadoEm"));
         Page<Anuncio> anuncios = consultarHistorico(usuario.getId(), status, incluirRemovidos, paginacao);
-        return PaginadoDTO.de(anuncios, anuncioService::paraResponse);
+        Map<UUID, AnuncioResponseDTO> respostas = anuncioService.paraResponseMap(anuncios.getContent());
+        return PaginadoDTO.de(anuncios, anuncio -> respostas.get(anuncio.getId()));
     }
 
     private Page<Anuncio> consultarHistorico(UUID usuarioId, StatusAnuncio status,
