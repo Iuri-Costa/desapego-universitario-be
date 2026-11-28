@@ -13,6 +13,12 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionDefinition;
+import org.springframework.transaction.TransactionStatus;
+import org.springframework.transaction.support.SimpleTransactionStatus;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.time.Duration;
 import java.time.Instant;
@@ -20,6 +26,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.never;
@@ -30,6 +37,21 @@ import static org.mockito.Mockito.when;
 class NotificacaoServiceTest {
 
     private static final String EMAIL = "aluno@universidade.edu.br";
+
+    private static final PlatformTransactionManager TRANSACAO_SIMULADA = new PlatformTransactionManager() {
+        @Override
+        public TransactionStatus getTransaction(TransactionDefinition definition) {
+            return new SimpleTransactionStatus();
+        }
+
+        @Override
+        public void commit(TransactionStatus status) {
+        }
+
+        @Override
+        public void rollback(TransactionStatus status) {
+        }
+    };
 
     @Mock
     private NotificacaoRepository notificacaoRepository;
@@ -47,7 +69,7 @@ class NotificacaoServiceTest {
     @BeforeEach
     void setUp() {
         service = new NotificacaoService(notificacaoRepository, dispositivoRepository,
-                usuarioRepository, notificadorPush, Duration.ofDays(90), 500);
+                usuarioRepository, notificadorPush, TRANSACAO_SIMULADA, Duration.ofDays(90), 500);
         destinatarioId = UUID.randomUUID();
         destinatario = new Usuario(destinatarioId, "Aluno", EMAIL, "hash",
                 Role.USUARIO, true, Instant.now());
@@ -88,6 +110,39 @@ class NotificacaoServiceTest {
         verify(notificacaoRepository).save(any());
         verify(dispositivoRepository).delete(invalido);
         verify(dispositivoRepository, never()).delete(valido);
+    }
+
+    @Test
+    void pushDeveSerEnviadoSomenteDepoisDoCommit() {
+        DispositivoFCM dispositivo = dispositivo("token-1", Instant.now());
+        when(usuarioRepository.findById(destinatarioId)).thenReturn(Optional.of(destinatario));
+        when(dispositivoRepository.findByUsuarioId(destinatarioId)).thenReturn(List.of(dispositivo));
+        when(notificadorPush.enviar("token-1", "Titulo", "Mensagem")).thenReturn(true);
+
+        TransactionSynchronizationManager.initSynchronization();
+        try {
+            service.notificar(destinatarioId, "Titulo", "Mensagem", "MENSAGEM", null);
+
+            verify(notificadorPush, never()).enviar(anyString(), anyString(), anyString());
+            TransactionSynchronizationManager.getSynchronizations()
+                    .forEach(TransactionSynchronization::afterCommit);
+            verify(notificadorPush).enviar("token-1", "Titulo", "Mensagem");
+            verify(notificacaoRepository).save(any());
+        } finally {
+            TransactionSynchronizationManager.clearSynchronization();
+        }
+    }
+
+    @Test
+    void falhaNoPushNaoDevePropagarParaAOperacaoQueNotificou() {
+        when(usuarioRepository.findById(destinatarioId)).thenReturn(Optional.of(destinatario));
+        when(dispositivoRepository.findByUsuarioId(destinatarioId))
+                .thenReturn(List.of(dispositivo("token-1", Instant.now())));
+        when(notificadorPush.enviar(anyString(), anyString(), anyString()))
+                .thenThrow(new IllegalStateException("FCM indisponivel"));
+
+        assertDoesNotThrow(() -> service.notificar(destinatarioId, "Titulo", "Mensagem", "MENSAGEM", null));
+        verify(notificacaoRepository).save(any());
     }
 
     @Test

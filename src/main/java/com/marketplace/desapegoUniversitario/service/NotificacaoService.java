@@ -13,20 +13,31 @@ import com.marketplace.desapegoUniversitario.util.Paginas;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import java.time.Duration;
 import java.time.Instant;
+import java.util.List;
 import java.util.UUID;
 
 @Service
 public class NotificacaoService {
 
+    private static final Logger log = LoggerFactory.getLogger(NotificacaoService.class);
+
     private final NotificacaoRepository notificacaoRepository;
     private final DispositivoFCMRepository dispositivoRepository;
     private final UsuarioRepository usuarioRepository;
     private final NotificadorPush notificadorPush;
+    private final TransactionTemplate transacaoIsolada;
     private final Duration deviceTtl;
     private final int cleanupLote;
 
@@ -34,12 +45,15 @@ public class NotificacaoService {
                               DispositivoFCMRepository dispositivoRepository,
                               UsuarioRepository usuarioRepository,
                               NotificadorPush notificadorPush,
+                              PlatformTransactionManager transactionManager,
                               @Value("${app.fcm.device-ttl:P90D}") Duration deviceTtl,
                               @Value("${app.fcm.cleanup-lote:500}") int cleanupLote) {
         this.notificacaoRepository = notificacaoRepository;
         this.dispositivoRepository = dispositivoRepository;
         this.usuarioRepository = usuarioRepository;
         this.notificadorPush = notificadorPush;
+        this.transacaoIsolada = new TransactionTemplate(transactionManager);
+        this.transacaoIsolada.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
         this.deviceTtl = deviceTtl;
         this.cleanupLote = cleanupLote;
     }
@@ -52,10 +66,40 @@ public class NotificacaoService {
         notificacaoRepository.save(new Notificacao(
                 null, destinatario, titulo, mensagem, tipo, referenciaId, null, Instant.now()));
         limparDispositivosAntigos();
-        for (DispositivoFCM dispositivo : dispositivoRepository.findByUsuarioId(destinatarioId)) {
-            if (!notificadorPush.enviar(dispositivo.getToken(), titulo, mensagem)) {
-                dispositivoRepository.delete(dispositivo);
+        List<DispositivoFCM> dispositivos = dispositivoRepository.findByUsuarioId(destinatarioId);
+        agendarPush(dispositivos, titulo, mensagem);
+    }
+
+    private void agendarPush(List<DispositivoFCM> dispositivos, String titulo, String mensagem) {
+        if (dispositivos.isEmpty()) {
+            return;
+        }
+        Runnable envio = () -> dispositivos.forEach(dispositivo -> enviarPush(dispositivo, titulo, mensagem));
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    envio.run();
+                }
+            });
+        } else {
+            envio.run();
+        }
+    }
+
+    private void enviarPush(DispositivoFCM dispositivo, String titulo, String mensagem) {
+        try {
+            if (notificadorPush.enviar(dispositivo.getToken(), titulo, mensagem)) {
+                return;
             }
+        } catch (RuntimeException e) {
+            log.warn("Falha inesperada no push FCM: {}", e.getClass().getSimpleName());
+            return;
+        }
+        try {
+            transacaoIsolada.executeWithoutResult(status -> dispositivoRepository.delete(dispositivo));
+        } catch (RuntimeException e) {
+            log.warn("Falha ao remover dispositivo FCM invalido: {}", e.getClass().getSimpleName());
         }
     }
 
