@@ -38,7 +38,7 @@ rotas `/api/v1/admin/**` e `/actuator/metrics` exigem `ROLE_ADMIN`.
 | Linguagem / runtime | Java 21 |
 | Framework | Spring Boot 4.1.0 (Web MVC, Validation, Data JPA, Security, Mail, Cache, Actuator) |
 | Segurança | Spring Security + JWT JJWT 0.12.6, BCrypt, CORS, rate limit por IP e por e-mail |
-| Persistência | PostgreSQL 16, Hibernate, Spring Data JPA, Flyway (V1–V20) |
+| Persistência | PostgreSQL 16, Hibernate, Spring Data JPA, Flyway (V1–V21) |
 | Cache | Caffeine (máx. 500 entradas, TTL de 30 s) |
 | Documentação | springdoc-openapi 3.2.1 (Swagger UI + `/openapi.json`) |
 | Armazenamento | AWS SDK S3 2.59.7 (S3 ou compatível) ou disco local em desenvolvimento |
@@ -59,7 +59,7 @@ flowchart LR
     Filtros --> Controller["Controllers<br/>DTO + Bean Validation"]
     Controller --> Service["Services<br/>regras de negócio"]
     Service --> Repository["Repositories + Specifications"]
-    Repository --> DB[("PostgreSQL 16<br/>Flyway V1–V20")]
+    Repository --> DB[("PostgreSQL 16<br/>Flyway V1–V21")]
     Service --> Cache[("Caffeine<br/>TTL 30s")]
     Service --> Storage{"S3_BUCKET definido?"}
     Storage -->|não| Local["Disco local<br/>/uploads/**"]
@@ -271,7 +271,8 @@ preço, status e usuário; `V16` adiciona `ordem`/`capa` às imagens e espelha a
 legado `anuncio.imagem`; `V17` adiciona `contato` e `avatar` ao perfil; `V18` normaliza o
 motivo das denúncias em enum; `V19` expira reservas ativas duplicadas em bases antigas. A
 `V20__reserva_unica_ativa` é específica por banco (`src/main/resources/db/vendor/{h2,postgresql}`)
-e cria a unique index que impede duas reservas ativas no mesmo anúncio. O Hibernate roda com
+e cria a unique index que impede duas reservas ativas no mesmo anúncio; `V21` adiciona
+`usuario.token_version` para revogar access tokens. O Hibernate roda com
 `ddl-auto=validate` e o Flyway com `clean-disabled=true`.
 
 ---
@@ -377,7 +378,8 @@ A maioria das variáveis está em [`.env.example`](.env.example); as demais têm
 | `APP_PUBLIC_URL` | vazio | Base pública opcional para storage local. Vazio devolve `/uploads/...` (relativo); definido devolve URL absoluta |
 | `MULTIPART_MAX_FILE_SIZE`, `MULTIPART_MAX_REQUEST_SIZE` | `10MB`, `25MB` | Limites de infra do multipart |
 | `FCM_CREDENTIALS`, `FCM_PROJECT_ID`, `FCM_SCOPE`, `FCM_OAUTH_URL`, `FCM_SEND_URL` | vazios / URLs padrão FCM | Push opcional; sem credencial, apenas notificação no banco |
-| `FCM_DEVICE_TTL`, `FCM_CLEANUP_LOTE` | `P90D`, `500` | Tokens antigos são removidos em lotes ao registrar dispositivo ou notificar; tokens recusados pelo FCM são removidos na hora |
+| `FCM_DEVICE_TTL`, `FCM_CLEANUP_LOTE` | `P90D`, `500` | Tokens antigos são removidos em lotes ao registrar dispositivo ou notificar; tokens recusados pelo FCM são removidos em transação isolada após o commit |
+| `FCM_READ_TIMEOUT` | `5s` | Timeout de leitura do cliente HTTP do FCM; falhas no push nunca revertem a notificação |
 | `JPA_SHOW_SQL`, `JPA_FORMAT_SQL`, `SQL_LOG_LEVEL` | `false`, `false`, `WARN` | Logs SQL (nunca ligar bind de parâmetros) |
 | `LOG_FORMAT`, `LOG_LEVEL_ROOT`, `APP_VERSION` | `logstash`, `INFO`, `1.0.0` | Logs JSON e metadados do `/actuator/info` |
 | `OPENAPI_ENABLED`, `SWAGGER_UI_ENABLED` | `true` | Documentação da API |
@@ -404,7 +406,7 @@ Documentação completa, payloads e códigos de resposta em [docs/API.md](docs/A
 | POST | `/api/v1/usuarios/login` | Público; **deprecated** — alias legado de `/auth/login`, responde com headers `Deprecation`/`Sunset`; use `/auth/login` |
 | POST | `/api/v1/auth/login` | Público; retorna access + refresh token |
 | POST | `/api/v1/auth/refresh` | Público; rotaciona o refresh token |
-| POST | `/api/v1/auth/logout` | Bearer; revoga os refresh tokens |
+| POST | `/api/v1/auth/logout` | Bearer; revoga os refresh tokens e o access token em uso |
 
 ### Anúncios e imagens
 
@@ -467,10 +469,12 @@ tratar pelo `codigo`, nunca pela mensagem.
 - **DTOs nas bordas:** entidades nunca são expostas diretamente; `Usuario` jamais trafega com a senha, e os DTOs carregam exemplos no OpenAPI.
 - **UUID e datas canonizadas:** IDs UUID e `Instant` em UTC eliminam ambiguidade de timezone entre cliente, API e banco.
 - **Enums estáveis:** persistência como string em `UPPER_SNAKE_CASE`, aceitação case-insensitive na entrada e `CHECK` constraints no banco.
-- **Migrações aditivas:** Flyway `V1`–`V20` sem destruir dados (a `V20` é por vendor do banco); `V13` normaliza enums, `V14` cria índices para os filtros mais usados e as versões seguintes evoluíram reserva, imagens, perfil e motivos de denúncia.
+- **Migrações aditivas:** Flyway `V1`–`V21` sem destruir dados (a `V20` é por vendor do banco); `V13` normaliza enums, `V14` cria índices para os filtros mais usados e as versões seguintes evoluíram reserva, imagens, perfil e revogação de tokens.
 - **Busca controlada:** `Specification` com whitelist de ordenação e validação de `page`/`size`/faixa de preço, evitando SQL dinâmico arbitrário e consultas custosas.
 - **Cache curto:** Caffeine com TTL de 30 s nas listagens públicas e invalidação em escritas; dados obsoletos ficam limitados a essa janela.
-- **Tokens com rotação:** access token de 15 min e refresh de 7 dias de uso único; reutilização revoga a família de tokens. Hash de tokens e senhas nunca é logado.
+- **Listagens sem N+1:** as imagens de todos os anúncios da página são carregadas em uma única consulta antes de montar os DTOs.
+- **Efeitos externos pós-commit:** push FCM e remoção de arquivos de imagem acontecem após o commit; uploads são compensados em rollback e falhas de push não revertem o negócio.
+- **Tokens com rotação e versão:** access token de 15 min e refresh de 7 dias de uso único; reutilização revoga a família de tokens e logout/troca de senha incrementam `token_version`, invalidando access tokens já emitidos. Hash de tokens e senhas nunca é logado.
 - **Integrações opcionais:** sem `S3_BUCKET` o storage é local; sem `FCM_CREDENTIALS` as notificações ficam apenas no banco; sem `MAIL_HOST` nenhum e-mail é enviado.
 - **Contrato publicado:** `/openapi.json` é a fonte para gerar clientes Kotlin; mudanças incompatíveis exigem nova versão de URL, conforme `docs/VERSIONAMENTO.md`.
 - **Observabilidade:** correlation id gerado/propagado por requisição no header `X-Correlation-Id` e no MDC; logs no formato estruturado `logstash`; Actuator expõe health (público), info (Bearer) e metrics (ADMIN).
