@@ -39,6 +39,7 @@ import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -131,14 +132,14 @@ public class AnuncioService {
     @Transactional(readOnly = true)
     public PaginadoDTO<AnuncioResponseDTO> buscar(AnuncioFiltroDTO filtro) {
         Page<Anuncio> pagina = anuncioRepository.findAll(AnuncioSpecification.de(filtro), paginacao(filtro));
-        return PaginadoDTO.de(pagina, this::paraResponse);
+        Map<UUID, AnuncioResponseDTO> respostas = paraResponseMap(pagina.getContent());
+        return PaginadoDTO.de(pagina, anuncio -> respostas.get(anuncio.getId()));
     }
 
     @Transactional(readOnly = true)
     public List<AnuncioResponseDTO> listarTodos() {
-        return anuncioRepository.findAllByRemovidoEmIsNull().stream()
-                .map(this::paraResponse)
-                .toList();
+        List<Anuncio> anuncios = anuncioRepository.findAllByRemovidoEmIsNull();
+        return paraResponseNaOrdem(anuncios);
     }
 
     @CacheEvict(value = {"anuncios-busca", "anuncios-detalhe", "anuncios-categoria"},
@@ -153,9 +154,7 @@ public class AnuncioService {
     @Cacheable(cacheNames = "anuncios-categoria", key = "#categoria")
     @Transactional(readOnly = true)
     public List<AnuncioResponseDTO> listarPorCategoria(Categoria categoria) {
-        return anuncioRepository.findByCategoriaAndRemovidoEmIsNull(categoria).stream()
-                .map(this::paraResponse)
-                .toList();
+        return paraResponseNaOrdem(anuncioRepository.findByCategoriaAndRemovidoEmIsNull(categoria));
     }
 
     @CacheEvict(value = {"anuncios-busca", "anuncios-detalhe", "anuncios-categoria"},
@@ -301,7 +300,41 @@ public class AnuncioService {
     }
 
     public AnuncioResponseDTO paraResponse(Anuncio anuncio) {
-        List<ImagemResponseDTO> imagens = imagensDe(anuncio.getId());
+        return paraResponse(anuncio, imagensPorAnuncio(List.of(anuncio)));
+    }
+
+    /** Converte uma lista buscando todas as imagens em uma única consulta. */
+    public Map<UUID, AnuncioResponseDTO> paraResponseMap(List<Anuncio> anuncios) {
+        Map<UUID, List<ImagemResponseDTO>> imagens = imagensPorAnuncio(anuncios);
+        Map<UUID, AnuncioResponseDTO> respostas = new HashMap<>();
+        for (Anuncio anuncio : anuncios) {
+            respostas.put(anuncio.getId(), paraResponse(anuncio, imagens));
+        }
+        return respostas;
+    }
+
+    private List<AnuncioResponseDTO> paraResponseNaOrdem(List<Anuncio> anuncios) {
+        Map<UUID, AnuncioResponseDTO> respostas = paraResponseMap(anuncios);
+        return anuncios.stream().map(anuncio -> respostas.get(anuncio.getId())).toList();
+    }
+
+    private Map<UUID, List<ImagemResponseDTO>> imagensPorAnuncio(List<Anuncio> anuncios) {
+        if (anuncios.isEmpty()) {
+            return Map.of();
+        }
+        List<UUID> ids = anuncios.stream().map(Anuncio::getId).toList();
+        Map<UUID, List<ImagemResponseDTO>> porAnuncio = new HashMap<>();
+        for (AnuncioImagem imagem : imagemRepository
+                .findByAnuncioIdInOrderByAnuncioIdAscOrdemAscCriadoEmAscIdAsc(ids)) {
+            porAnuncio.computeIfAbsent(imagem.getAnuncio().getId(), ignorado -> new ArrayList<>())
+                    .add(paraDTO(imagem));
+        }
+        return porAnuncio;
+    }
+
+    private AnuncioResponseDTO paraResponse(Anuncio anuncio,
+                                            Map<UUID, List<ImagemResponseDTO>> imagensConhecidas) {
+        List<ImagemResponseDTO> imagens = imagensConhecidas.getOrDefault(anuncio.getId(), List.of());
         String imagemCapa = imagens.stream()
                 .filter(ImagemResponseDTO::capa)
                 .map(ImagemResponseDTO::url)
