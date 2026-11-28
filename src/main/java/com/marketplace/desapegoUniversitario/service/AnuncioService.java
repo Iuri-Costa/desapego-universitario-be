@@ -26,10 +26,14 @@ import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.Sort;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.util.unit.DataSize;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -47,6 +51,8 @@ import java.util.UUID;
 
 @Service
 public class AnuncioService {
+
+    private static final Logger log = LoggerFactory.getLogger(AnuncioService.class);
 
     private static final Map<String, String> ORDENACAO_PERMITIDA = Map.of(
             "titulo", "titulo",
@@ -226,9 +232,10 @@ public class AnuncioService {
             }
             List<ImagemResponseDTO> resposta = imagens.stream().map(this::paraDTO).toList();
             sincronizarImagemLegada(anuncio, resposta);
+            agendarRemocaoSeRollback(List.copyOf(chavesSalvas));
             return resposta;
         } catch (RuntimeException e) {
-            chavesSalvas.forEach(armazenamento::remover);
+            removerArquivos(chavesSalvas);
             throw e;
         }
     }
@@ -243,7 +250,7 @@ public class AnuncioService {
                 .orElseThrow(() -> new RecursoNaoEncontradoException("Imagem não encontrada"));
 
         imagemRepository.delete(imagem);
-        armazenamento.remover(imagem.getChave());
+        agendarRemocaoAposCommit(imagem.getChave());
 
         List<AnuncioImagem> restantes = imagensDeEntidades(anuncioId).stream()
                 .filter(atual -> !atual.getId().equals(imagemId))
@@ -297,6 +304,45 @@ public class AnuncioService {
 
     private List<ImagemResponseDTO> imagensDe(UUID anuncioId) {
         return imagensDeEntidades(anuncioId).stream().map(this::paraDTO).toList();
+    }
+
+    private void agendarRemocaoAposCommit(String chave) {
+        if (!TransactionSynchronizationManager.isSynchronizationActive()) {
+            removerArquivo(chave);
+            return;
+        }
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                removerArquivo(chave);
+            }
+        });
+    }
+
+    private void agendarRemocaoSeRollback(List<String> chaves) {
+        if (chaves.isEmpty() || !TransactionSynchronizationManager.isSynchronizationActive()) {
+            return;
+        }
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCompletion(int status) {
+                if (status == TransactionSynchronization.STATUS_ROLLED_BACK) {
+                    removerArquivos(chaves);
+                }
+            }
+        });
+    }
+
+    private void removerArquivos(List<String> chaves) {
+        chaves.forEach(this::removerArquivo);
+    }
+
+    private void removerArquivo(String chave) {
+        try {
+            armazenamento.remover(chave);
+        } catch (RuntimeException e) {
+            log.warn("Falha ao remover arquivo de imagem {}: {}", chave, e.getClass().getSimpleName());
+        }
     }
 
     public AnuncioResponseDTO paraResponse(Anuncio anuncio) {

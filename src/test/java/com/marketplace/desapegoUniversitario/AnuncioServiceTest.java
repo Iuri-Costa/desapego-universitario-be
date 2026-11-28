@@ -26,9 +26,12 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.security.access.AccessDeniedException;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.util.unit.DataSize;
 
 import java.math.BigDecimal;
+import java.util.Base64;
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
@@ -38,6 +41,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyCollection;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -90,6 +94,60 @@ class AnuncioServiceTest {
     private AnuncioImagem imagem(Anuncio alvo, String chave, boolean capa) {
         return new AnuncioImagem(UUID.randomUUID(), alvo, chave, "/uploads/" + chave,
                 "image/png", Instant.now(), 0, capa);
+    }
+
+    private static final byte[] PNG = Base64.getDecoder().decode(
+            "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8DwHwAFAAH/q842iQAAAABJRU5ErkJggg==");
+
+    @Test
+    void arquivoDaImagemRemovidaDeveSerExcluidoSomenteAposCommit() {
+        AnuncioImagem imagem = imagem(anuncio, "caderno.png", true);
+        when(anuncioRepository.findByIdAndRemovidoEmIsNull(anuncioId)).thenReturn(Optional.of(anuncio));
+        when(usuarioRepository.findByEmail(EMAIL)).thenReturn(Optional.of(anuncio.getUsuario()));
+        when(imagemRepository.findByIdAndAnuncioId(imagem.getId(), anuncioId)).thenReturn(Optional.of(imagem));
+        when(imagemRepository.findByAnuncioIdOrderByOrdemAscCriadoEmAscIdAsc(anuncioId))
+                .thenReturn(List.of());
+
+        TransactionSynchronizationManager.initSynchronization();
+        try {
+            service.removerImagem(anuncioId, imagem.getId(), EMAIL);
+
+            verify(armazenamento, never()).remover(anyString());
+            TransactionSynchronizationManager.getSynchronizations()
+                    .forEach(TransactionSynchronization::afterCommit);
+            verify(armazenamento).remover("caderno.png");
+        } finally {
+            TransactionSynchronizationManager.clearSynchronization();
+        }
+    }
+
+    @Test
+    void uploadsDevemSerCompensadosSomenteSeATransacaoForRevertida() {
+        when(anuncioRepository.findByIdAndRemovidoEmIsNull(anuncioId)).thenReturn(Optional.of(anuncio));
+        when(usuarioRepository.findByEmail(EMAIL)).thenReturn(Optional.of(anuncio.getUsuario()));
+        when(imagemRepository.findByAnuncioIdOrderByOrdemAscCriadoEmAscIdAsc(anuncioId))
+                .thenReturn(List.of());
+        when(armazenamento.salvar(anyString(), any(byte[].class), anyString()))
+                .thenReturn("/uploads/novo.png");
+        when(imagemRepository.save(any(AnuncioImagem.class)))
+                .thenAnswer(invocacao -> invocacao.getArgument(0));
+
+        TransactionSynchronizationManager.initSynchronization();
+        try {
+            service.adicionarImagens(anuncioId, List.of(
+                    new org.springframework.mock.web.MockMultipartFile(
+                            "imagens", "novo.png", "image/png", PNG)), EMAIL);
+
+            verify(armazenamento, never()).remover(anyString());
+            TransactionSynchronizationManager.getSynchronizations().forEach(sincronizacao ->
+                    sincronizacao.afterCompletion(TransactionSynchronization.STATUS_COMMITTED));
+            verify(armazenamento, never()).remover(anyString());
+            TransactionSynchronizationManager.getSynchronizations().forEach(sincronizacao ->
+                    sincronizacao.afterCompletion(TransactionSynchronization.STATUS_ROLLED_BACK));
+            verify(armazenamento).remover(anyString());
+        } finally {
+            TransactionSynchronizationManager.clearSynchronization();
+        }
     }
 
     @Test
