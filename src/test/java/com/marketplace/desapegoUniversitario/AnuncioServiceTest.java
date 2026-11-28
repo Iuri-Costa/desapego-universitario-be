@@ -1,6 +1,7 @@
 package com.marketplace.desapegoUniversitario;
 
 import com.marketplace.desapegoUniversitario.domain.Anuncio;
+import com.marketplace.desapegoUniversitario.domain.AnuncioImagem;
 import com.marketplace.desapegoUniversitario.domain.Categoria;
 import com.marketplace.desapegoUniversitario.domain.Condicao;
 import com.marketplace.desapegoUniversitario.domain.Role;
@@ -33,7 +34,13 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyCollection;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -78,6 +85,32 @@ class AnuncioServiceTest {
     private AnuncioFiltroDTO filtro(String sort, BigDecimal min, BigDecimal max) {
         return new AnuncioFiltroDTO(null, null, null, min, max, null, null, null,
                 0, 20, sort);
+    }
+
+    private AnuncioImagem imagem(Anuncio alvo, String chave, boolean capa) {
+        return new AnuncioImagem(UUID.randomUUID(), alvo, chave, "/uploads/" + chave,
+                "image/png", Instant.now(), 0, capa);
+    }
+
+    @Test
+    void listagemDeveBuscarImagensEmUmaUnicaConsulta() {
+        Anuncio outro = new Anuncio();
+        outro.setId(UUID.randomUUID());
+        outro.setTitulo("Borracha");
+        when(anuncioRepository.findAllByRemovidoEmIsNull()).thenReturn(List.of(anuncio, outro));
+        when(imagemRepository.findByAnuncioIdInOrderByAnuncioIdAscOrdemAscCriadoEmAscIdAsc(
+                anyCollection())).thenReturn(List.of(
+                        imagem(anuncio, "caderno.png", true),
+                        imagem(outro, "borracha.png", true)));
+
+        var respostas = service.listarTodos();
+
+        assertEquals(2, respostas.size());
+        assertEquals("/uploads/caderno.png", respostas.get(0).imagem());
+        assertEquals("/uploads/borracha.png", respostas.get(1).imagem());
+        verify(imagemRepository, times(1))
+                .findByAnuncioIdInOrderByAnuncioIdAscOrdemAscCriadoEmAscIdAsc(anyCollection());
+        verify(imagemRepository, never()).findByAnuncioIdOrderByOrdemAscCriadoEmAscIdAsc(any());
     }
 
     @Test
