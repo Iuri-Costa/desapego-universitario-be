@@ -44,8 +44,11 @@ public class Usuario {
     @Column(length = 1000)
     private String avatar;
 
+    @Column(nullable = false)
+    private int tokenVersion;
+
     public Usuario(UUID id, String nome, String email, String senha, Role role,
                    boolean emailVerificado, Instant criadoEm) {
-        this(id, nome, email, senha, role, emailVerificado, criadoEm, null, null);
+        this(id, nome, email, senha, role, emailVerificado, criadoEm, null, null, 0);
     }
 }
