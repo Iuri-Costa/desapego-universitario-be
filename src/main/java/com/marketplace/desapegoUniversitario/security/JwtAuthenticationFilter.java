@@ -46,8 +46,13 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 return;
             }
             UserDetails usuario = userDetailsService.loadUserByUsername(claims.getSubject());
+            if (!(usuario instanceof UsuarioPrincipal principal)
+                    || !jwtService.versaoValida(claims, principal.getTokenVersion())) {
+                SecurityContextHolder.clearContext();
+                return;
+            }
             UsernamePasswordAuthenticationToken autenticacao =
-                    new UsernamePasswordAuthenticationToken(usuario, null, usuario.getAuthorities());
+                    new UsernamePasswordAuthenticationToken(principal, null, principal.getAuthorities());
             autenticacao.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
             SecurityContextHolder.getContext().setAuthentication(autenticacao);
         } catch (JwtException | IllegalArgumentException | UsernameNotFoundException e) {

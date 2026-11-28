@@ -25,6 +25,18 @@ class JwtServiceTest {
     }
 
     @Test
+    void tokenDevePerderValidadeQuandoVersaoDoUsuarioMuda() {
+        JwtService service = new JwtService(SEGREDO_VALIDO, Duration.ofMinutes(15), Duration.ofDays(7));
+        String email = "aluno@universidade.edu.br";
+
+        Claims claims = service.validar(service.gerarAccessToken(email, 3));
+        assertEquals(3, claims.get(JwtService.CLAIM_VERSAO, Integer.class));
+        assertTrue(service.versaoValida(claims, 3));
+        assertFalse(service.versaoValida(claims, 4));
+        assertTrue(service.versaoValida(service.validar(service.gerarAccessToken(email)), 0));
+    }
+
+    @Test
     void deveGerarEValidarTokenComClaimDeTipo() {
         JwtService service = new JwtService(SEGREDO_VALIDO, Duration.ofMinutes(15), Duration.ofDays(7));
 

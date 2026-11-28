@@ -21,6 +21,7 @@ public class JwtService {
 
     public static final String TIPO_ACCESS = "access";
     public static final String TIPO_REFRESH = "refresh";
+    public static final String CLAIM_VERSAO = "ver";
 
     private final SecretKey chave;
     private final Duration accessTtl;
@@ -39,11 +40,19 @@ public class JwtService {
     }
 
     public String gerarAccessToken(String email) {
-        return gerar(email, TIPO_ACCESS, accessTtl);
+        return gerarAccessToken(email, 0);
+    }
+
+    public String gerarAccessToken(String email, int versao) {
+        return gerar(email, TIPO_ACCESS, accessTtl, versao);
     }
 
     public String gerarRefreshToken(String email) {
-        return gerar(email, TIPO_REFRESH, refreshTtl);
+        return gerarRefreshToken(email, 0);
+    }
+
+    public String gerarRefreshToken(String email, int versao) {
+        return gerar(email, TIPO_REFRESH, refreshTtl, versao);
     }
 
     public Duration getRefreshTtl() {
@@ -70,6 +79,12 @@ public class JwtService {
         return TIPO_REFRESH.equals(claims.get("tipo", String.class));
     }
 
+    /** Tokens sem a claim (emitidos antes da V21) pertencem a versao 0. */
+    public boolean versaoValida(Claims claims, int versaoAtual) {
+        Integer versaoToken = claims.get(CLAIM_VERSAO, Integer.class);
+        return (versaoToken == null ? 0 : versaoToken) == versaoAtual;
+    }
+
     public String hash(String token) {
         try {
             MessageDigest digest = MessageDigest.getInstance("SHA-256");
@@ -79,12 +94,13 @@ public class JwtService {
         }
     }
 
-    private String gerar(String email, String tipo, Duration ttl) {
+    private String gerar(String email, String tipo, Duration ttl, int versao) {
         Instant agora = Instant.now();
         return Jwts.builder()
                 .subject(email)
                 .id(UUID.randomUUID().toString())
                 .claim("tipo", tipo)
+                .claim(CLAIM_VERSAO, versao)
                 .issuedAt(Date.from(agora))
                 .expiration(Date.from(agora.plus(ttl)))
                 .signWith(chave)
