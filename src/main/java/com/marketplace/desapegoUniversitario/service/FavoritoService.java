@@ -20,6 +20,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
+import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 @Service
@@ -73,8 +75,11 @@ public class FavoritoService {
         Page<Favorito> favoritos = favoritoRepository
                 .findByUsuarioIdAndAnuncioRemovidoEmIsNullOrderByCriadoEmDesc(
                         usuario.getId(), Paginas.de(page, size, Sort.by(Sort.Direction.DESC, "criadoEm")));
-        return PaginadoDTO.de(favoritos,
-                favorito -> anuncioService.buscarPorId(favorito.getAnuncio().getId()));
+        List<Anuncio> anuncios = favoritos.getContent().stream()
+                .map(Favorito::getAnuncio)
+                .toList();
+        Map<UUID, AnuncioResponseDTO> respostas = anuncioService.paraResponseMap(anuncios);
+        return PaginadoDTO.de(favoritos, favorito -> respostas.get(favorito.getAnuncio().getId()));
     }
 
     private Usuario buscarUsuario(String email) {
